@@ -1,0 +1,164 @@
+# TOPOTEX
+
+Topology-aware texture generation for artist meshes.
+
+## Pipeline
+
+```
+Reference Image + Mesh → six generated canonical views
+    → Surface Conditioner → Face Set Latent  Z_F  [F, 256]
+    → Global UV Query Attention (ANY UV layout as query)
+    → Flow Matching Texture Generator (rectified flow) → UV texture
+```
+
+## Overview
+
+### Problem
+
+Texture pipelines that address the surface through world coordinates are
+structurally ambiguous on artist meshes — self-intersections, coincident
+duplicated faces and thin shells put *different* surface points at *the
+same* xyz; pipelines that address it through one fixed UV atlas are tied to
+a single parameterization. TOPOTEX addresses texels by
+`(face_id, barycentric)`: a topological identity that survives coincident
+geometry, rigid/scale transforms, and re-parameterization.
+
+`Z_F` is a UV-layout-independent, topology-indexed surface latent — one
+token per triangle, built from intrinsic geometry + topology + multi-view
+appearance only. Validated properties (details and provenance in
+`experiments/experiment_log.md`): a held-out unwrap family transfers with
+zero gap, rotation/scale invariance is exact (cos = 1.0), connected partial
+surface queries work, and textures generated through different UV
+parameterizations agree when rebaked.
+
+## Repository
+
+```
+datasets/    source + UV query builders, loader, rasterizer, geometry
+models/      surface_conditioner/ (Z_F encoder + UV query decoder)
+             texture_generator/  (MiniDiT + masked diffusion)
+configs/     baseline.yaml — the single frozen recipe
+scripts/     8-GPU dataset build sharder
+notebooks/   Dataset_Inspector / Model_Inspector / Technical_Report
+experiments/ experiment_log.md (history) + protocol manifests
+docs/        architecture.md / technical_report.md
+tests/       pytest suite (model invariants, dataset gates, training path)
+checkpoints/ baseline/ — the final baseline checkpoint (gitignored payload)
+```
+
+## Dataset
+
+Each sample under `output/topotex_dataset/samples/<sample_id>/`
+(schema `topotex_dataset@1`):
+
+| query | type | contents |
+|---|---|---|
+| `uv_queries/uv_000` | canonical | native GLB parameterization |
+| `uv_queries/uv_001` | alternative | xatlas re-unwrap (face order preserved, asserted) |
+| `uv_queries/uv_002` | partial | deterministic connected face subset (25/50/75%), re-rasterized address maps, re-baked GT |
+| `uv_queries/uv_test` | held-out | Blender Smart UV — **evaluation only**, never trained |
+
+Every query holds `uv_address.safetensors` (`uv_vertices f32`, `uv_faces
+i32` — always the full layout so rebake works, `face_id i32 [256,256]`
+(-1 = background), `barycentric f16 [3,256,256]`, `valid_mask u8`) plus
+`gt_texture.png` baked through `(face, bary) → native UV → sRGB bilinear`.
+Loader: `datasets.dataset.TopoTexDataset` (train queries vs
+`test_uv_queries` hard-isolated).
+
+```bash
+PY=/root/miniconda3/envs/geomae/bin/python
+
+# 1) source ingest: textured GLB -> reference/mesh/six-views/gt sample
+$PY -m datasets.build_dataset --input-manifest glbs_eligible.jsonl \
+    --output output/topotex_source --limit 10
+# 8-GPU sharded (ids[rank::8], one UniTEX load per worker, atomic publish,
+# resume-skip; per-rank manifest_rank_K.jsonl merged by merge_manifest.py
+# with no-duplicate / no-missing / schema checks)
+GPU_IDS=0,1,2,3,4,5,6,7 bash scripts/build_dataset_8gpu.sh \
+    glbs_eligible.jsonl output/topotex_source
+
+# 2) UV query set: canonical / alternative / partial / held-out per mesh
+$PY -m datasets.build_uv_queries --limit 265
+```
+
+The gate accepts only: triangle mesh, single base-color texture, per-vertex
+UV inside [0,1], no UV overlap. The six views come from the frozen UniTEX
+stage-1 generator (MV + delight); view mapping `[0,3,1,4,2,5]` is verified.
+
+## Architecture (36.9M parameters)
+
+- **Surface Conditioner** (`models/surface_conditioner/`): FaceTokenizer
+  (intrinsic triangle geometry — edge/scale ratios, angles, log-area — plus
+  random-walk topology PE; no xyz, no UV, no face index) → face–view cross
+  attention over the six views → sparse Topology Transformer along the
+  shared-edge face adjacency → `Z_F [F, 256]` → **Global UV Query
+  Attention**: per-texel `[face_token ‖ bary_encoding]` → 8×8 patchify →
+  1024 query tokens (+ learned atlas position embedding) → cross attention
+  with K/V = `Z_F` → UV condition `[64, 256, 256]`.
+- **Flow Matching Generator** (`models/texture_generator/`): rectified
+  flow — `x_tau = (1-tau)·x0 + tau·eps`, the patchified transformer
+  (`dit.py`, 256², patch 8, AdaLN-Zero) predicts the velocity field;
+  sampling is a 50-step Euler ODE from tau=1 to 0. Noise and loss live
+  only inside the UV valid mask. The masked-diffusion schedule is kept
+  solely to load the previous reference checkpoint
+  (`checkpoints/dit_reference`).
+
+## Training
+
+```bash
+$PY train.py --samples 265 --run-name baseline [--resume]
+# generator defaults to flow matching (config); --generator diffusion loads
+# the previous reference schedule
+$PY sample.py   --run checkpoints/baseline --n 4 [--include-heldout]
+```
+
+Training uses the frozen recipe in `configs/topotex_fm_baseline.yaml`: one mesh per
+step, one query per step drawn with `query_probs` (canonical 0.5 /
+alternative 0.3 / partial 0.2), 2000 exposures per mesh; checkpoints carry
+model/optimizer/RNG and `--resume` restores them exactly. Evaluation
+reports UV PSNR (canonical / alternative / partial region / held-out), the
+partial-vs-full gap, and render consistency `R(M,U0,T0)` vs `R(M,U1,T1)`
+over six canonical views.
+## Evaluation
+
+```bash
+$PY evaluate.py --run checkpoints/baseline --n 10   # -> <run>/eval.json
+```
+
+Protocol (`docs/experiment_protocol.md`): 50-step sampling, seed 20260727,
+one shared `Z_F` per mesh. Metrics: UV PSNR (canonical / alternative /
+partial region / held-out family), render PSNR + cross-layout render
+consistency over six canonical views, and UV seam consistency (with the GT
+seam error as baking-floor reference).
+
+## Benchmarking
+
+`scripts/benchmark_training.py` measures training throughput levers on the
+frozen model (fp32 / bf16-on-DiT / face-count-bucketed group batching /
+packed face graph). Packed grouping is the dominant lever (+54% meshes/sec
+at group 4); numbers in `experiments/experiment_log.md`.
+
+## Notebook
+
+- `notebooks/Dataset_Inspector.ipynb` — input data, the three UV queries +
+  held-out (face_id / barycentric / valid / GT), partial-query statistics.
+- `notebooks/Model_Inspector.ipynb` — Z_F PCA on the mesh, UV query
+  attention trace, same-mesh-different-query generation, render consistency.
+- `notebooks/Technical_Report.ipynb` — presentation-grade
+  walkthrough of the full pipeline (all shapes/params printed from live
+  forwards).
+
+## Docs & history
+
+- `docs/architecture.md` — module-level architecture reference.
+- `docs/technical_report.md` — method + frozen baseline numbers.
+- `experiments/experiment_log.md` — every past experiment with date, goal,
+  config, result, conclusion, and commit. Code for each entry lives in git
+  history at the referenced commit.
+
+## Tests
+
+```bash
+$PY -m pytest tests/
+```
+

@@ -1,0 +1,17 @@
+{
+ "experiment": "fm_2k",
+ "commit": "d4fa411",
+ "config": {
+  "file": "configs/topotex_fm_baseline.yaml",
+  "sha256": "41a5f65415c16fbd6957636e95b71109bfe2494ec023a191d0e29bc73895c8e5"
+ },
+ "dataset": {
+  "root": "output/topotex_dataset",
+  "n_meshes": 2000,
+  "manifest_sha256": "pending (2K build finalizing)"
+ },
+ "metrics": null,
+ "checkpoint_path": "runs/fm_2k/ckpt.pt",
+ "status": "pending (launches after 2K dataset finalize; stage A gate at 50k)",
+ "recorded_at": "2026-07-29T10:59:51"
+}

@@ -1,0 +1,18 @@
+{
+ "experiment": "fm_100",
+ "commit": "d4fa411",
+ "config": {
+  "file": "configs/topotex_fm_baseline.yaml",
+  "sha256": "41a5f65415c16fbd6957636e95b71109bfe2494ec023a191d0e29bc73895c8e5",
+  "note": "generator fm, packed group K=4, bf16, query_probs 0.5/0.3/0.2"
+ },
+ "dataset": {
+  "root": "output/topotex_dataset",
+  "n_meshes": 100,
+  "manifest_sha256": "4d7dc2e394d3250e4ce3d5bf961719f07b8de4e4fb093c4bb852bb1a73d32d97"
+ },
+ "metrics": null,
+ "checkpoint_path": "runs/fm_100/ckpt.pt (final copy -> checkpoints/baseline)",
+ "status": "running (50k steps, 2000 exposures/mesh)",
+ "recorded_at": "2026-07-29T10:59:51"
+}

@@ -1,0 +1,51 @@
+# TOPOTEX FM baseline — FROZEN recipe (do not modify; copy for forks).
+# Generator: Flow Matching / rectified flow (velocity net = the patchified
+#            transformer backbone, unchanged). Masked-diffusion schedule
+#            remains loadable only for the previous reference checkpoint.
+# Surface Conditioner: unchanged. UV Query design: unchanged.
+# Training: bf16 on the velocity net + packed face-graph batch (K=4,
+#           face-count bucket sampler) + CPU-resident data past 300 meshes.
+# Model: Surface Conditioner (face tokenizer + face-view cross attention +
+#        topology transformer) + Global UV Query Attention decoder + MiniDiT.
+# Dataset: canonical / alternative(xatlas) / partial-surface queries
+#          (+ held-out smart-uv family, eval only).
+# Query sampling: query_probs below (canonical / alternative / partial).
+# Generator: rectified flow (fm) is the primary texture generator; the
+#            masked-diffusion schedule remains loadable for the previous
+#            reference checkpoint.
+# Efficiency: packed face-graph groups (bucketed by face count) + bf16 on
+#             the velocity net — measured +54% meshes/sec vs single-mesh.
+# Do not edit for research forks — copy.
+dataset_root: output/topotex_dataset
+seed: 20260729
+# surface conditioner
+cond_dim: 256
+cond_channels: 64
+pe_k: 16
+cond_heads: 8
+cross_depth: 2
+topo_depth: 4
+query_depth: 4
+image_size: 256
+# texture generator
+resolution: 256
+patch: 8
+dit_hidden: 384
+dit_depth: 8
+dit_heads: 6
+# diffusion / training
+T: 1000
+target_mesh_exposures: 2000
+noise_batch: 4
+lr: 3.0e-4
+warmup: 100
+lr_final_frac: 0.1
+t_high_frac: 0.5
+t_high_min: 700
+aux_rgb_weight: 0.1
+log_every: 200
+ckpt_every: 2000
+query_probs: [0.5, 0.3, 0.2]
+generator: fm
+group_size: 4
+precision: bf16
