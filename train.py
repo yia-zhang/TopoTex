@@ -78,7 +78,7 @@ def bucket_group_ids(root, ids, k):
     return [order[i:i + k] for i in range(0, len(order), k)]
 
 
-def build_groups(ds, k, device):
+def build_groups(ds, k, device, topo_pe=None):
     """Face-count-bucketed fixed groups + one packed graph per group.
     Per-mesh unit-area normalization + rel rescale keep the tokenizer's
     intrinsic features numerically identical to per-mesh encoding."""
@@ -100,7 +100,11 @@ def build_groups(ds, k, device):
         graph = build_face_graph(Vp, Fp)
         graph["rel"][:, 0] *= graph["global_scale"]
         graph["global_scale"] = torch.tensor(1.0, device=device)
+        # the random-walk PE is deterministic per graph — computing it once
+        # here removes ~60% of the per-step forward cost
+        pe = topo_pe(graph, len(Fp)) if topo_pe is not None else None
         groups.append({"idxs": idxs, "Vp": Vp, "Fp": Fp, "graph": graph,
+                       "pe": pe,
                        "n_faces": [len(ds[j]["mesh"]["faces"])
                                    for j in idxs]})
     return groups
@@ -120,7 +124,8 @@ class PackedLoss(torch.nn.Module):
     def forward(self, grp, queries, imgs, t, g):
         c = self.conditioner
         gph = grp["graph"]
-        pe = c.topo_pe(gph, len(grp["Fp"]))
+        pe = grp["pe"] if grp.get("pe") is not None \
+            else c.topo_pe(gph, len(grp["Fp"]))
         x = c.tokenizer(grp["Vp"], grp["Fp"], gph, pe)
         img_tokens = c.image_encoder(imgs)
         outs, fo = [], 0
@@ -221,7 +226,8 @@ def main():
     sched_cls = (MaskedFlowMatching if cfg["generator"] == "fm"
                  else MaskedDiffusion)
     diffusion = sched_cls(T=int(cfg["T"]), device=device)
-    groups = (build_groups(ds, group_size, device)
+    groups = (build_groups(ds, group_size, device,
+                           topo_pe=conditioner.topo_pe)
               if group_size > 1 else None)
     step_mod = PackedLoss(conditioner, dit, diffusion,
                           float(cfg["aux_rgb_weight"]),
@@ -259,6 +265,11 @@ def main():
 
     g = torch.Generator(device=device).manual_seed(seed + 1000 * rank)
     g_idx = torch.Generator().manual_seed(seed + 1 + 1000 * rank)
+    # group-index generator is SHARED across ranks: shards are stride-slices
+    # of the size-sorted group list, so a common index keeps every rank in
+    # the same size class per step (otherwise the DDP sync waits on the
+    # largest random draw and throughput collapses to the straggler)
+    g_grp = torch.Generator().manual_seed(seed + 7)
     start_step = 0
     loss_ema = None
     if args.resume and (run / "ckpt.pt").exists():
@@ -275,6 +286,8 @@ def main():
         else:
             g.set_state(ck["rng_g"].cpu())
             g_idx.set_state(ck["rng_g_idx"].cpu())
+        if "rng_g_grp" in ck:
+            g_grp.set_state(ck["rng_g_grp"].cpu())
         start_step = ck["global_step"]
         loss_ema = ck["loss_ema"]
         if is_main:
@@ -304,8 +317,8 @@ def main():
             return item["uv_queries"][qi]
 
         if group_size > 1:
-            grp = groups[int(torch.randint(0, len(groups), (1,),
-                                           generator=g_idx))]
+            k = int(torch.randint(0, 1 << 30, (1,), generator=g_grp))
+            grp = groups[k % len(groups)]
             queries = []
             for j in grp["idxs"]:
                 q0 = pick_query(ds[j])
@@ -395,6 +408,7 @@ def main():
         if step % int(cfg["ckpt_every"]) == 0 or step == steps:
             my_rng = {"g": g.get_state().cpu(),
                       "g_idx": g_idx.get_state().cpu()}
+            rng_grp = g_grp.get_state().cpu()
             if world > 1:
                 rng_all = [None] * world
                 dist.all_gather_object(rng_all, my_rng)
@@ -408,6 +422,7 @@ def main():
                             "rng_g": rng_all[0]["g"],
                             "rng_g_idx": rng_all[0]["g_idx"],
                             "rng_all": rng_all, "world_size": world,
+                            "rng_g_grp": rng_grp,
                             "dataset_manifest_sha256": manifest_sha,
                             "config_sha256": config_sha},
                            run / "ckpt.pt.tmp")
