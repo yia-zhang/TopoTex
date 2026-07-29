@@ -1,17 +1,54 @@
 {
  "experiment": "fm_2k",
- "commit": "d4fa411",
+ "commit": "bdcc3e3",
  "config": {
   "file": "configs/topotex_fm_baseline.yaml",
-  "sha256": "41a5f65415c16fbd6957636e95b71109bfe2494ec023a191d0e29bc73895c8e5"
+  "sha256": "41a5f65415c16fbd6957636e95b71109bfe2494ec023a191d0e29bc73895c8e5",
+  "note": "generator fm, packed K=4, bf16, DDP world 8 (256 mesh-exposures/step), 123875 steps, PE cached"
  },
  "dataset": {
   "root": "output/topotex_dataset",
   "n_meshes": 2000,
-  "manifest_sha256": "pending (2K build finalizing)"
+  "manifest_sha256": "f44f42f58ddd0d6d7c8dc442728e3c5a5e29128e736376e740c50bba4a365029"
  },
- "metrics": null,
- "checkpoint_path": "runs/fm_2k/ckpt.pt",
- "status": "pending (launches after 2K dataset finalize; stage A gate at 50k)",
- "recorded_at": "2026-07-29T10:59:51"
+ "metrics": {
+  "group0_first32": {
+   "canonical_same_region_psnr": 25.53,
+   "gt_render_psnr_U1": 26.11,
+   "n_seam_edges": 201.84,
+   "partial_outside_zero": 1.0,
+   "partial_region_psnr": 25.42,
+   "render_consistency_U0_U1": 25.98,
+   "seam_consistency": 0.11,
+   "seam_consistency_gt_ref": 0.06,
+   "uv_psnr_alternative": 24.91,
+   "uv_psnr_canonical": 25.0,
+   "uv_psnr_heldout": 21.56
+  },
+  "group1000_disjoint32": {
+   "canonical_same_region_psnr": 25.79,
+   "gt_render_psnr_U1": 27.33,
+   "n_seam_edges": 145.34,
+   "partial_outside_zero": 1.0,
+   "partial_region_psnr": 25.77,
+   "render_consistency_U0_U1": 26.72,
+   "seam_consistency": 0.1,
+   "seam_consistency_gt_ref": 0.06,
+   "uv_psnr_alternative": 25.67,
+   "uv_psnr_canonical": 25.52,
+   "uv_psnr_heldout": 21.63
+  },
+  "stage_a_gate": "CONTINUE at 6.5% budget (reports/fm_2k_stageA)",
+  "protocol": {
+   "generator": "fm",
+   "sampling_steps": 50,
+   "seed": 20260727,
+   "shared_Z_F": true,
+   "mean_generation_seconds": 0.209
+  }
+ },
+ "checkpoint_path": "checkpoints/baseline/ckpt.pt",
+ "status": "complete",
+ "recorded_at": "2026-07-29T17:38:53",
+ "throughput": "243 mesh-exposures/s on 8xH800 (272 min total)"
 }

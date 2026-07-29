@@ -82,13 +82,20 @@ log):
 
 Same pipeline, rectified-flow generator, official efficiency configuration
 (packed face-graph groups K=4, bf16 velocity net). Current ladder
-(protocol as above, 10 training meshes; `checkpoints/baseline` holds the
-10-mesh checkpoint until the 100-mesh/2K runs land):
+(protocol as above; `checkpoints/baseline` holds the 1982-mesh
+checkpoint — the official FM 2K baseline):
 
 | stage | canonical | alternative | partial | held-out | render consistency |
 |---|---|---|---|---|---|
 | single-mesh overfit | 48.97 | 47.18 | 48.23 | — | 39.77 |
 | 10-mesh | 21.27 | 20.65 | 21.86 | 14.25 | 22.82 (GT 22.52) |
+| 100-mesh (8-GPU DDP) | 23.62 | 23.17 | 24.73 | 20.39 | 23.95 (GT 24.57) |
+| **1982-mesh (official)** | **25.00/25.52** | **24.91/25.67** | **25.42/25.77** | **21.56/21.63** | **25.98/26.72** (GT 26.11/27.33) |
+
+The 1982-mesh row reports two disjoint 32-mesh evaluation groups; seam
+consistency is 0.10-0.11 vs the 0.06 GT baking floor. Z_F representation
+scaling holds — held-out transfer improves monotonically with dataset
+size at zero architecture change.
 
 Packed grouping trades seen-query memorization for held-out transfer
 (+1.7 dB vs single-mesh FM) — see the experiment log. The 100-mesh and

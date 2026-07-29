@@ -193,6 +193,32 @@ that are not conclusions.
   this baseline. DiT/diffusion is reference-only.
 - **commit** (this commit)
 
+
+## FM 2K scalable baseline
+
+- **date** 2026-07-29
+- **goal** Scale the FM baseline to the 2K dataset; validate Z_F
+  representation scaling and the multi-GPU training stack end to end.
+- **dataset** 1982 meshes (99.35% build success, zero duplicates,
+  full-query coverage 1.0), canonical/alternative/partial + held-out
+  Smart-UV; manifest sha recorded in checkpoint and record.json.
+- **model** unchanged 36.9M pipeline; rectified flow; official efficiency
+  config (packed K=4, bf16) on 8-GPU DDP (256 mesh-exposures/step; PE
+  cached per group; synchronized size-class sampling).
+- **result** 272 min for 2000 exposures/mesh (243 mesh-exp/s; the two
+  throughput fixes took 8-GPU DDP from 21 to 243). Stage-A gate at 6.5%
+  budget: CONTINUE (all failures were budget underfit; no structural
+  defects). Final, two disjoint 32-mesh groups: canonical 25.00/25.52,
+  alternative 24.91/25.67, partial 25.42/25.77, held-out 21.56/21.63 dB;
+  render consistency 25.98/26.72 (GT fidelity 26.11/27.33); seam
+  0.10-0.11 vs GT floor 0.06 (1.7-1.8x, down from 4.4x at Stage-A).
+- **conclusion** Z_F representation scaling holds: 100 -> 1982 meshes with
+  zero architecture change lifts held-out transfer by +1.2-3.1 dB with
+  tight cross-group agreement. Decoupling signature preserved. Remaining
+  gap for 10K: unseen-mesh validation split (current held-out axis is the
+  UV family, not mesh identity).
+- **commit** (this commit)
+
 ---
 
 ## Reference baseline (masked diffusion, retired)

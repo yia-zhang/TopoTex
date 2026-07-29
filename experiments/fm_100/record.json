@@ -1,18 +1,53 @@
 {
  "experiment": "fm_100",
- "commit": "d4fa411",
+ "commit": "4b0cec2",
  "config": {
   "file": "configs/topotex_fm_baseline.yaml",
   "sha256": "41a5f65415c16fbd6957636e95b71109bfe2494ec023a191d0e29bc73895c8e5",
-  "note": "generator fm, packed group K=4, bf16, query_probs 0.5/0.3/0.2"
+  "note": "generator fm, packed K=4, bf16, DDP world_size 8 (effective 32 meshes/step), query_probs 0.5/0.3/0.2"
  },
  "dataset": {
   "root": "output/topotex_dataset",
   "n_meshes": 100,
-  "manifest_sha256": "4d7dc2e394d3250e4ce3d5bf961719f07b8de4e4fb093c4bb852bb1a73d32d97"
+  "manifest_sha256": "f44f42f58ddd0d6d7c8dc442728e3c5a5e29128e736376e740c50bba4a365029"
  },
- "metrics": null,
- "checkpoint_path": "runs/fm_100/ckpt.pt (final copy -> checkpoints/baseline)",
- "status": "running (50k steps, 2000 exposures/mesh)",
- "recorded_at": "2026-07-29T10:59:51"
+ "metrics": {
+  "group0_first16": {
+   "canonical_same_region_psnr": 24.95,
+   "gt_render_psnr_U1": 24.57,
+   "n_seam_edges": 230.62,
+   "partial_outside_zero": 1.0,
+   "partial_region_psnr": 24.73,
+   "render_consistency_U0_U1": 23.95,
+   "seam_consistency": 0.11,
+   "seam_consistency_gt_ref": 0.05,
+   "uv_psnr_alternative": 23.17,
+   "uv_psnr_canonical": 23.62,
+   "uv_psnr_heldout": 20.39
+  },
+  "group50_disjoint16": {
+   "canonical_same_region_psnr": 24.72,
+   "gt_render_psnr_U1": 24.45,
+   "n_seam_edges": 143.69,
+   "partial_outside_zero": 1.0,
+   "partial_region_psnr": 24.53,
+   "render_consistency_U0_U1": 23.85,
+   "seam_consistency": 0.1,
+   "seam_consistency_gt_ref": 0.04,
+   "uv_psnr_alternative": 22.67,
+   "uv_psnr_canonical": 23.79,
+   "uv_psnr_heldout": 18.5
+  },
+  "protocol": {
+   "generator": "fm",
+   "sampling_steps": 50,
+   "seed": 20260727,
+   "shared_Z_F": true,
+   "mean_generation_seconds": 0.229
+  }
+ },
+ "checkpoint_path": "checkpoints/baseline/ckpt.pt",
+ "status": "complete",
+ "recorded_at": "2026-07-29T13:04:06",
+ "throughput": "224 mesh-exposures/s on 8xH800 (training 15.0 min)"
 }
