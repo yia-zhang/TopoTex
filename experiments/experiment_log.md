@@ -219,6 +219,33 @@ that are not conclusions.
   UV family, not mesh identity).
 - **commit** (this commit)
 
+
+## Model scaling study (controlled, one variable at a time)
+
+- **date** 2026-07-29
+- **goal** Locate the capacity bottleneck before the 10K scale-up — judged
+  on all four axes (canonical, held-out UV, render consistency, seam),
+  not reconstruction alone.
+- **dataset** 2K set, 100 meshes, 2000 exposures/mesh, official DDP
+  configuration; evaluation: 16 meshes, standard protocol.
+- **model** config knobs only (architecture untouched): conditioner token
+  dim 256->384->512; topology depth 4->6; generator hidden 384->512
+  (heads 8 so head_dim stays 64).
+- **result** (canonical / held-out / consistency / seam)
+  base 36.9M: 23.62 / 20.39 / 23.95 / 0.11 ·
+  dim384 51.8M: 24.88 / 20.50 / 24.90 / 0.10 ·
+  dim512 72.2M: 24.87 / 20.60 / 24.69 / 0.10 ·
+  depth6 38.5M: 23.55 / 20.49 / 24.04 / 0.11 ·
+  fm512 54.4M: 24.70 / 20.04 / 24.56 / 0.10.
+- **conclusion** Token dimension is the only effective knob and saturates
+  at 384 (+1.3 dB canonical, +1 dB consistency; 512 adds nothing for 2x
+  base params). Topology depth 6 and generator hidden 512 are flat-to-
+  negative. Held-out transfer is FLAT across every variant (20.0-20.6) —
+  generalization is driven by data scale, not capacity, corroborating the
+  100->2K result. Candidate for 10K: dim384; decide after the 10K data
+  run confirms the compute budget.
+- **commit** (this commit)
+
 ---
 
 ## Reference baseline (masked diffusion, retired)

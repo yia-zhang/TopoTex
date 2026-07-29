@@ -47,6 +47,9 @@ def main():
     ap.add_argument("--world-size", "--world_size", dest="world_size",
                     type=int, default=1)
     ap.add_argument("--rank", type=int, default=0)
+    ap.add_argument("--ids-file", default=None,
+                    help="json list (or {'val': [...]}) of mesh ids to "
+                         "evaluate — enables unseen-mesh evaluation")
     ap.add_argument("--merge", action="store_true",
                     help="merge eval_rank_*.json under --run into eval.json")
     args = ap.parse_args()
@@ -86,7 +89,13 @@ def main():
                  if ck["config"].get("generator") == "fm"
                  else MaskedDiffusion)
     diffusion = sched_cls(T=int(ck["config"]["T"]), device=device)
-    ids = ck["samples"][args.offset:args.offset + args.n]
+    if args.ids_file:
+        blob = json.loads(Path(args.ids_file).read_text())
+        pool = (blob.get("val") or blob.get("unseen") or blob
+                if isinstance(blob, dict) else blob)
+        ids = list(pool)[args.offset:args.offset + args.n]
+    else:
+        ids = ck["samples"][args.offset:args.offset + args.n]
     ids = ids[args.rank::args.world_size]
     ds = TopoTexDataset(PROJECT_ROOT / ck["config"]["dataset_root"], ids,
                         device=device)

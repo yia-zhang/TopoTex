@@ -171,6 +171,9 @@ def main():
     ap.add_argument("--steps", type=int, default=None)
     ap.add_argument("--seed", type=int, default=None)
     ap.add_argument("--resume", action="store_true")
+    ap.add_argument("--ids-file", default=None,
+                    help="json file with {'train': [...]} or a plain list — "
+                         "overrides manifest ordering (mesh-level splits)")
     ap.add_argument("--generator", default=None,
                     choices=["diffusion", "fm"],
                     help="texture generator schedule (default: config value "
@@ -192,7 +195,12 @@ def main():
     assert abs(sum(query_probs) - 1) < 1e-6
 
     root = PROJECT_ROOT / cfg["dataset_root"]
-    ids = [json.loads(l)["sample_id"] for l in open(root / "manifest.jsonl")]
+    if args.ids_file:
+        blob = json.loads(Path(args.ids_file).read_text())
+        ids = blob["train"] if isinstance(blob, dict) else blob
+    else:
+        ids = [json.loads(l)["sample_id"]
+               for l in open(root / "manifest.jsonl")]
     ids = ids[: int(args.samples)]
     group_size = max(1, min(int(cfg.get("group_size", 1)), len(ids)))
     cfg["group_size"] = group_size
@@ -316,6 +324,15 @@ def main():
                     break
             return item["uv_queries"][qi]
 
+        do_profile = (step % int(cfg["log_every"]) == 0 or step == 1)
+
+        def _tick():
+            if do_profile:
+                torch.cuda.synchronize()
+                return time.time()
+            return 0.0
+
+        t_p0 = _tick()
         if group_size > 1:
             k = int(torch.randint(0, 1 << 30, (1,), generator=g_grp))
             grp = groups[k % len(groups)]
@@ -334,7 +351,9 @@ def main():
                 t[:n_high] = torch.randint(t_high_min, diffusion.T + 1,
                                            (n_high,), device=device,
                                            generator=g)
+            t_p1 = _tick()
             loss, loss_diff, aux = step_mod(grp, queries, imgs, t, g)
+            t_p2 = _tick()
             q_tag = f"{queries[0]['name']}(+{len(queries) - 1})"
         else:
             it = ds[int(torch.randint(0, len(ds), (1,), generator=g_idx))]
@@ -368,10 +387,14 @@ def main():
                 aux = (out["uv_rgb"][0] - q["gt_texture"]).abs()[
                     :, q["valid_mask"]].mean()
                 loss = loss + aux_w * aux
+        if group_size == 1:
+            t_p1 = t_p2 = _tick()
         opt.zero_grad(set_to_none=True)
         loss.backward()
+        t_p3 = _tick()
         torch.nn.utils.clip_grad_norm_(params, 1.0)
         opt.step()
+        t_p4 = _tick()
 
         l = float(loss)
         if not np.isfinite(l):
@@ -399,10 +422,15 @@ def main():
                     {"step": step, "gpu_util": float(util),
                      "memory_mb": float(mem), "power_w": float(pw),
                      "steps_per_sec": round(dsteps / dtime, 2),
-                     "meshes_per_sec": round(dsteps * group_size / dtime, 2)})
+                     "meshes_per_sec": round(dsteps * group_size / dtime, 2),
+                     "data_ms": round((t_p1 - t_p0) * 1000, 1),
+                     "forward_ms": round((t_p2 - t_p1) * 1000, 1),
+                     "backward_comm_ms": round((t_p3 - t_p2) * 1000, 1),
+                     "optimizer_ms": round((t_p4 - t_p3) * 1000, 1)})
                 last_log[:] = [step, time.time()]
-            except Exception:
-                pass
+            except Exception as e:
+                if step == 1:
+                    print(f"[profile] sampling failed: {e!r}", flush=True)
             print(f"step {step}/{steps} loss {l:.4f} ema {loss_ema:.4f} "
                   f"({q_tag}) ({time.time()-t0:.0f}s)", flush=True)
         if step % int(cfg["ckpt_every"]) == 0 or step == steps:
