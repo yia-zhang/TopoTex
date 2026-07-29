@@ -44,10 +44,39 @@ def main():
     ap.add_argument("--out", default=None)
     ap.add_argument("--n", type=int, default=10)
     ap.add_argument("--offset", type=int, default=0)
+    ap.add_argument("--world-size", "--world_size", dest="world_size",
+                    type=int, default=1)
+    ap.add_argument("--rank", type=int, default=0)
+    ap.add_argument("--merge", action="store_true",
+                    help="merge eval_rank_*.json under --run into eval.json")
     args = ap.parse_args()
     device = "cuda:0"
     run = Path(args.run)
     out_path = Path(args.out) if args.out else run / "eval.json"
+    if args.merge:
+        rows = []
+        proto = None
+        gstep = None
+        for p in sorted(run.glob("eval_rank_*.json")):
+            d = json.loads(p.read_text())
+            rows.extend(d["per_mesh"])
+            proto, gstep = d["protocol"], d.get("global_step")
+        seen = set()
+        rows = [r for r in rows
+                if not (r["mesh_id"] in seen or seen.add(r["mesh_id"]))]
+        num_keys = sorted({k for r in rows for k in r
+                           if isinstance(r[k], (int, float))
+                           and k != "mesh_id"})
+        agg = {k: round(float(np.mean(
+                   [r[k] for r in rows if r.get(k) is not None])), 2)
+               for k in num_keys}
+        (run / "eval.json").write_text(json.dumps(
+            {"run": str(run), "global_step": gstep, "n_meshes": len(rows),
+             "protocol": proto, "aggregate": agg, "per_mesh": rows},
+            indent=1))
+        print("MERGED", len(rows), "meshes ->", run / "eval.json")
+        print("AGG", json.dumps(agg))
+        return
     ck = torch.load(run / "ckpt.pt", map_location=device, weights_only=False)
     conditioner, dit = build_models(ck["config"], device)
     conditioner.load_state_dict(ck["conditioner"])
@@ -58,6 +87,7 @@ def main():
                  else MaskedDiffusion)
     diffusion = sched_cls(T=int(ck["config"]["T"]), device=device)
     ids = ck["samples"][args.offset:args.offset + args.n]
+    ids = ids[args.rank::args.world_size]
     ds = TopoTexDataset(PROJECT_ROOT / ck["config"]["dataset_root"], ids,
                         device=device)
 

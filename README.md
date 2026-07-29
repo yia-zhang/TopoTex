@@ -106,6 +106,11 @@ stage-1 generator (MV + delight); view mapping `[0,3,1,4,2,5]` is verified.
 ## Training
 
 ```bash
+# official multi-GPU entry (torchrun DDP; groups sharded across ranks,
+# effective batch = K * world_size meshes/step; budget stays in exposures)
+GPU_IDS=0,1,2,3,4,5,6,7 bash scripts/train_8gpu.sh \
+    --samples 2000 --run-name fm_2k [--resume]
+# single-GPU (small runs / smoke)
 $PY train.py --samples 265 --run-name baseline [--resume]
 # generator defaults to flow matching (config); --generator diffusion loads
 # the previous reference schedule
@@ -123,7 +128,14 @@ over six canonical views.
 
 ```bash
 $PY evaluate.py --run checkpoints/baseline --n 10   # -> <run>/eval.json
+# sharded across GPUs (rank i evaluates samples[i::world]; auto-merge):
+GPU_IDS=0,1,2,3,4,5,6,7 bash scripts/evaluate_8gpu.sh checkpoints/baseline 32
 ```
+
+Every official job goes through `scripts/run_experiment.sh <task> <cmd...>`,
+which prints the GPU plan (selected GPUs / CUDA_VISIBLE_DEVICES / task name)
+and the currently-busy GPUs before launching — no unplanned multi-job
+contention.
 
 Protocol (`docs/experiment_protocol.md`): 50-step sampling, seed 20260727,
 one shared `Z_F` per mesh. Metrics: UV PSNR (canonical / alternative /

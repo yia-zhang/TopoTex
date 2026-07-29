@@ -27,6 +27,15 @@ from pathlib import Path
 
 import numpy as np
 import torch
+import torch.distributed as dist
+
+
+def ddp_env():
+    """(rank, world_size, local_rank); (0,1,0) when not under torchrun."""
+    if "RANK" in os.environ:
+        return (int(os.environ["RANK"]), int(os.environ["WORLD_SIZE"]),
+                int(os.environ["LOCAL_RANK"]))
+    return 0, 1, 0
 
 from datasets.dataset import TopoTexDataset
 from models.surface_conditioner import SurfaceConditioner, build_face_graph
@@ -58,6 +67,17 @@ def to_dev(t, device):
     return t.to(device, non_blocking=True) if t.device.type != device.split(":")[0] else t
 
 
+def bucket_group_ids(root, ids, k):
+    """Face-count-bucketed groups of ids (meta.json num_faces — identical
+    key to the loaded data). Deterministic across ranks."""
+    nf = {}
+    for sid in ids:
+        meta = json.loads((root / "samples" / sid / "meta.json").read_text())
+        nf[sid] = meta["num_faces"]
+    order = sorted(ids, key=lambda s: (nf[s], s))
+    return [order[i:i + k] for i in range(0, len(order), k)]
+
+
 def build_groups(ds, k, device):
     """Face-count-bucketed fixed groups + one packed graph per group.
     Per-mesh unit-area normalization + rel rescale keep the tokenizer's
@@ -86,33 +106,55 @@ def build_groups(ds, k, device):
     return groups
 
 
-def group_step(conditioner, group, ds, queries, device, aux_w):
-    """Packed conditioner forward for one group. queries: per-mesh query
-    dicts (already on device). Returns per-mesh (cond, aux_rgb_loss)."""
-    g = group["graph"]
-    pe = conditioner.topo_pe(g, len(group["Fp"]))
-    x = conditioner.tokenizer(group["Vp"], group["Fp"], g, pe)
-    imgs = torch.stack([to_dev(ds[j]["mv_images"], device)
-                        for j in group["idxs"]]).float() / 255
-    img_tokens = conditioner.image_encoder(imgs)          # [K, Nv*T, D]
-    outs, fo = [], 0
-    for i, n in enumerate(group["n_faces"]):
-        outs.append(conditioner.cross(x[fo:fo + n].unsqueeze(0),
-                                      img_tokens[i:i + 1]).squeeze(0))
-        fo += n
-    x = conditioner.topo(torch.cat(outs), g)
-    conds, aux = [], 0.0
-    fo = 0
-    for q, n in zip(queries, group["n_faces"]):
-        c, rgb = conditioner.decoder(x[fo:fo + n], q["face_id"],
-                                     q["barycentric"].permute(1, 2, 0),
-                                     with_rgb=aux_w > 0)
-        conds.append(c.unsqueeze(0))
-        if aux_w > 0:
-            aux = aux + (rgb - q["gt_texture"]).abs()[
-                :, q["valid_mask"]].mean()
-        fo += n
-    return conds, aux / max(len(queries), 1)
+class PackedLoss(torch.nn.Module):
+    """One packed-group training forward: conditioner pathway + generator
+    loss in a single module, so DDP gradient hooks cover the whole step."""
+
+    def __init__(self, conditioner, dit, sched, aux_w, bs, use_bf16):
+        super().__init__()
+        self.conditioner = conditioner
+        self.dit = dit
+        self.sched = sched
+        self.aux_w, self.bs, self.use_bf16 = aux_w, bs, use_bf16
+
+    def forward(self, grp, queries, imgs, t, g):
+        c = self.conditioner
+        gph = grp["graph"]
+        pe = c.topo_pe(gph, len(grp["Fp"]))
+        x = c.tokenizer(grp["Vp"], grp["Fp"], gph, pe)
+        img_tokens = c.image_encoder(imgs)
+        outs, fo = [], 0
+        for i, n in enumerate(grp["n_faces"]):
+            outs.append(c.cross(x[fo:fo + n].unsqueeze(0),
+                                img_tokens[i:i + 1]).squeeze(0))
+            fo += n
+        x = c.topo(torch.cat(outs), gph)
+        conds, aux, fo = [], 0.0, 0
+        for q, n in zip(queries, grp["n_faces"]):
+            cd, rgb = c.decoder(x[fo:fo + n], q["face_id"],
+                                q["barycentric"].permute(1, 2, 0),
+                                with_rgb=self.aux_w > 0)
+            conds.append(cd.unsqueeze(0))
+            if self.aux_w > 0:
+                aux = aux + (rgb - q["gt_texture"]).abs()[
+                    :, q["valid_mask"]].mean()
+            fo += n
+        x0s, ms, cs = [], [], []
+        for q, cd in zip(queries, conds):
+            m = q["valid_mask"].float()[None, None]
+            x0s.append(((q["gt_texture"][None] * 2 - 1) * m)
+                       .expand(self.bs, -1, -1, -1))
+            ms.append(m.expand(self.bs, -1, -1, -1))
+            cs.append(cd.expand(self.bs, -1, -1, -1))
+        with torch.autocast("cuda", torch.bfloat16, enabled=self.use_bf16):
+            loss_diff = self.sched.loss(self.dit, torch.cat(x0s),
+                                        torch.cat(cs), torch.cat(ms), t=t,
+                                        generator=g)
+        loss_diff = loss_diff.float()
+        aux_t = aux / max(len(queries), 1) if self.aux_w > 0 else None
+        loss = loss_diff + (self.aux_w * aux_t if aux_t is not None else 0.0)
+        return (loss, loss_diff.detach(),
+                aux_t.detach() if aux_t is not None else None)
 
 
 def main():
@@ -132,7 +174,12 @@ def main():
     cfg = yaml.safe_load(open(args.config))
     if args.seed is not None:
         cfg["seed"] = args.seed
-    device = "cuda:0"
+    rank, world, local_rank = ddp_env()
+    if world > 1:
+        dist.init_process_group("nccl")
+        torch.cuda.set_device(local_rank)
+    device = f"cuda:{local_rank}"
+    is_main = rank == 0
     seed = int(cfg["seed"])
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -144,9 +191,11 @@ def main():
     ids = ids[: int(args.samples)]
     group_size = max(1, min(int(cfg.get("group_size", 1)), len(ids)))
     cfg["group_size"] = group_size
+    cfg["world_size"] = world
     use_bf16 = cfg.get("precision") == "bf16"
     steps = args.steps or math.ceil(
-        len(ids) * int(cfg["target_mesh_exposures"]) / group_size)
+        len(ids) * int(cfg["target_mesh_exposures"])
+        / (group_size * world))
     cfg["steps"] = steps
     run = PROJECT_ROOT / "runs" / args.run_name
     run.mkdir(parents=True, exist_ok=True)
@@ -155,9 +204,18 @@ def main():
         cfg["generator"] = args.generator
     cfg.setdefault("generator", "diffusion")
     # packed mode stores data on CPU past 300 meshes (moved per step) and
-    # skips per-item graphs (group graphs are packed at startup instead)
-    data_dev = device if (group_size == 1 or len(ids) <= 300) else "cpu"
-    ds = TopoTexDataset(root, ids, device=data_dev,
+    # skips per-item graphs (group graphs are packed at startup instead).
+    # Under DDP each rank owns a disjoint shard of the bucketed groups and
+    # loads only those meshes.
+    if world > 1:
+        assert group_size > 1, "DDP path uses the packed-group trainer"
+        gid_all = bucket_group_ids(root, ids, group_size)
+        my_gids = gid_all[rank::world]
+        my_ids = [s for g in my_gids for s in g]
+    else:
+        my_gids, my_ids = None, ids
+    data_dev = device if (group_size == 1 or len(my_ids) <= 300) else "cpu"
+    ds = TopoTexDataset(root, my_ids, device=data_dev,
                         build_graphs=(group_size == 1))
     conditioner, dit = build_models(cfg, device)
     sched_cls = (MaskedFlowMatching if cfg["generator"] == "fm"
@@ -165,6 +223,13 @@ def main():
     diffusion = sched_cls(T=int(cfg["T"]), device=device)
     groups = (build_groups(ds, group_size, device)
               if group_size > 1 else None)
+    step_mod = PackedLoss(conditioner, dit, diffusion,
+                          float(cfg["aux_rgb_weight"]),
+                          int(cfg["noise_batch"]),
+                          cfg.get("precision") == "bf16")
+    if world > 1:
+        step_mod = torch.nn.parallel.DistributedDataParallel(
+            step_mod, device_ids=[local_rank])
     params = list(conditioner.parameters()) + list(dit.parameters())
     opt = torch.optim.AdamW(params, lr=float(cfg["lr"]), weight_decay=0.0,
                             betas=(0.9, 0.95))
@@ -185,28 +250,36 @@ def main():
         (root / "manifest.jsonl").read_bytes()).hexdigest()
     config_sha = hashlib.sha256(
         Path(args.config).read_bytes()).hexdigest()
-    (run / "provenance.json").write_text(json.dumps(
-        {"config": cfg, "samples": ids, "n_params": n_params,
-         "git_commit": commit, "query_probs": query_probs,
-         "dataset_manifest_sha256": manifest_sha,
-         "config_sha256": config_sha}, indent=1))
+    if is_main:
+        (run / "provenance.json").write_text(json.dumps(
+            {"config": cfg, "samples": ids, "n_params": n_params,
+             "git_commit": commit, "query_probs": query_probs,
+             "dataset_manifest_sha256": manifest_sha,
+             "config_sha256": config_sha}, indent=1))
 
-    g = torch.Generator(device=device).manual_seed(seed)
-    g_idx = torch.Generator().manual_seed(seed + 1)
+    g = torch.Generator(device=device).manual_seed(seed + 1000 * rank)
+    g_idx = torch.Generator().manual_seed(seed + 1 + 1000 * rank)
     start_step = 0
     loss_ema = None
     if args.resume and (run / "ckpt.pt").exists():
         ck = torch.load(run / "ckpt.pt", map_location=device,
                         weights_only=False)
+        assert ck.get("world_size", 1) == world, \
+            f"checkpoint world_size {ck.get('world_size', 1)} != {world}"
         conditioner.load_state_dict(ck["conditioner"])
         dit.load_state_dict(ck["dit"])
         opt.load_state_dict(ck["opt"])
-        g.set_state(ck["rng_g"].cpu())
-        g_idx.set_state(ck["rng_g_idx"].cpu())
+        if world > 1 and "rng_all" in ck:
+            g.set_state(ck["rng_all"][rank]["g"].cpu())
+            g_idx.set_state(ck["rng_all"][rank]["g_idx"].cpu())
+        else:
+            g.set_state(ck["rng_g"].cpu())
+            g_idx.set_state(ck["rng_g_idx"].cpu())
         start_step = ck["global_step"]
         loss_ema = ck["loss_ema"]
-        print(f"resumed {run} at step {start_step}", flush=True)
-    metrics_f = open(run / "metrics.jsonl", "a")
+        if is_main:
+            print(f"resumed {run} at step {start_step}", flush=True)
+    metrics_f = open(run / "metrics.jsonl", "a") if is_main else None
     profile_rows = []
     dev_index = os.environ.get("CUDA_VISIBLE_DEVICES", "0").split(",")[0]
     last_log = [0, time.time()]
@@ -238,17 +311,9 @@ def main():
                 q0 = pick_query(ds[j])
                 queries.append({k: (to_dev(v, device) if torch.is_tensor(v)
                                     else v) for k, v in q0.items()})
-            conds, aux = group_step(conditioner, grp, ds, queries, device,
-                                    aux_w)
-            x0s, masks, cs = [], [], []
-            for q, c in zip(queries, conds):
-                m = q["valid_mask"].float()[None, None]
-                x0s.append(((q["gt_texture"][None] * 2 - 1) * m)
-                           .expand(bs, -1, -1, -1))
-                masks.append(m.expand(bs, -1, -1, -1))
-                cs.append(c.expand(bs, -1, -1, -1))
-            X0, M, C = torch.cat(x0s), torch.cat(masks), torch.cat(cs)
-            B = X0.shape[0]
+            imgs = torch.stack([to_dev(ds[j]["mv_images"], device)
+                                for j in grp["idxs"]]).float() / 255
+            B = int(cfg["noise_batch"]) * len(queries)
             t = torch.randint(1, diffusion.T + 1, (B,), device=device,
                               generator=g)
             n_high = int(round(B * t_high_frac))
@@ -256,11 +321,7 @@ def main():
                 t[:n_high] = torch.randint(t_high_min, diffusion.T + 1,
                                            (n_high,), device=device,
                                            generator=g)
-            with torch.autocast("cuda", torch.bfloat16, enabled=use_bf16):
-                loss_diff = diffusion.loss(dit, X0, C, M, t=t, generator=g)
-            loss_diff = loss_diff.float()
-            loss = loss_diff + (aux_w * aux if aux_w > 0 else 0.0)
-            aux = aux if aux_w > 0 else None
+            loss, loss_diff, aux = step_mod(grp, queries, imgs, t, g)
             q_tag = f"{queries[0]['name']}(+{len(queries) - 1})"
         else:
             it = ds[int(torch.randint(0, len(ds), (1,), generator=g_idx))]
@@ -303,7 +364,7 @@ def main():
         if not np.isfinite(l):
             raise RuntimeError(f"NaN/Inf loss at step {step}")
         loss_ema = l if loss_ema is None else 0.99 * loss_ema + 0.01 * l
-        if step % int(cfg["log_every"]) == 0 or step == 1:
+        if is_main and (step % int(cfg["log_every"]) == 0 or step == 1):
             row = {"step": step, "loss": l, "loss_ema": loss_ema,
                    "loss_diff": float(loss_diff),
                    "aux_rgb": None if aux is None else float(aux),
@@ -332,26 +393,41 @@ def main():
             print(f"step {step}/{steps} loss {l:.4f} ema {loss_ema:.4f} "
                   f"({q_tag}) ({time.time()-t0:.0f}s)", flush=True)
         if step % int(cfg["ckpt_every"]) == 0 or step == steps:
-            torch.save({"conditioner": conditioner.state_dict(),
-                        "dit": dit.state_dict(), "config": cfg,
-                        "samples": ids, "global_step": step,
-                        "loss_ema": loss_ema, "opt": opt.state_dict(),
-                        "rng_g": g.get_state(),
-                        "rng_g_idx": g_idx.get_state(),
-                        "dataset_manifest_sha256": manifest_sha,
-                        "config_sha256": config_sha},
-                       run / "ckpt.pt.tmp")
-            os.replace(run / "ckpt.pt.tmp", run / "ckpt.pt")
-            (run / "training_profile.json").write_text(json.dumps(
-                {"group_size": group_size, "rows": profile_rows[-500:]},
-                indent=1))
-    if log_rows:
+            my_rng = {"g": g.get_state().cpu(),
+                      "g_idx": g_idx.get_state().cpu()}
+            if world > 1:
+                rng_all = [None] * world
+                dist.all_gather_object(rng_all, my_rng)
+            else:
+                rng_all = [my_rng]
+            if is_main:
+                torch.save({"conditioner": conditioner.state_dict(),
+                            "dit": dit.state_dict(), "config": cfg,
+                            "samples": ids, "global_step": step,
+                            "loss_ema": loss_ema, "opt": opt.state_dict(),
+                            "rng_g": rng_all[0]["g"],
+                            "rng_g_idx": rng_all[0]["g_idx"],
+                            "rng_all": rng_all, "world_size": world,
+                            "dataset_manifest_sha256": manifest_sha,
+                            "config_sha256": config_sha},
+                           run / "ckpt.pt.tmp")
+                os.replace(run / "ckpt.pt.tmp", run / "ckpt.pt")
+                (run / "training_profile.json").write_text(json.dumps(
+                    {"group_size": group_size, "world_size": world,
+                     "rows": profile_rows[-500:]}, indent=1))
+            if world > 1:
+                dist.barrier()
+    if is_main and log_rows:
         with open(run / "train_log.csv", "w", newline="") as f:
             w = csv.DictWriter(f, fieldnames=list(log_rows[0].keys()))
             w.writeheader()
             w.writerows(log_rows)
-    print(f"done: {run} | {n_params/1e6:.1f}M params | "
-          f"{(time.time()-t0)/60:.1f} min | ema {loss_ema:.4f}")
+    if world > 1:
+        dist.barrier()
+        dist.destroy_process_group()
+    if is_main:
+        print(f"done: {run} | {n_params/1e6:.1f}M params | "
+              f"{(time.time()-t0)/60:.1f} min | ema {loss_ema:.4f}")
 
 
 if __name__ == "__main__":
