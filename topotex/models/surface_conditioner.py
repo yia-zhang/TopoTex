@@ -37,6 +37,7 @@ class SurfaceConditioner(nn.Module):
         image_size=256,
         patch=8,
         resolution=256,
+        texel_dim=None,
     ):
         super().__init__()
         self.topo_pe = TopologyPE(pe_kind, pe_k)
@@ -51,6 +52,7 @@ class SurfaceConditioner(nn.Module):
             res=resolution,
             heads=heads,
             depth=query_depth,
+            texel_dim=texel_dim,
         )
 
     def encode_faces(self, mesh, mv_images, graph=None):

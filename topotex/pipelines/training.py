@@ -256,6 +256,16 @@ def main():
         root, my_ids, device=data_dev, build_graphs=(group_size == 1)
     )
     conditioner, dit = build_models(cfg, device)
+    # UV query encoder provenance (stamped into every checkpoint config)
+    cfg["uv_query_encoder"] = "factorized_dense"
+    cfg["uv_texel_dim"] = int(conditioner.decoder.texel_dim)
+    cfg["patch_size"] = int(cfg["patch"])
+    cfg["query_heads"] = int(cfg["cond_heads"])
+    if is_main:
+        print(
+            f"uv query encoder: factorized_dense "
+            f"Dq={cfg['uv_texel_dim']} (D={cfg['cond_dim']})"
+        )
     diffusion = MaskedFlowMatching(T=int(cfg["T"]), device=device)
     groups = (
         build_groups(ds, group_size, device, topo_pe=conditioner.topo_pe)

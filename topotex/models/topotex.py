@@ -15,7 +15,7 @@ from typing import Optional, Union
 import torch
 import torch.nn as nn
 
-from topotex.config import TopoTexConfig
+from topotex.config import SurfaceConditionerConfig, TopoTexConfig
 from topotex.data.schema import (
     ConditionerOutput,
     FaceGraph,
@@ -34,6 +34,17 @@ def build_models(cfg: dict, device: str):
     frozen recipe — initial weights are reproducible).
     """
     torch.manual_seed(int(cfg["seed"]))
+    sc_defaults = SurfaceConditionerConfig()
+    encoder = str(cfg.get("uv_query_encoder", sc_defaults.uv_query_encoder))
+    if encoder != "factorized_dense":
+        raise ValueError(
+            f"uv_query_encoder {encoder!r}: factorized_dense is the only "
+            "implementation; earlier checkpoints require their frozen commit"
+        )
+    texel_dim = int(
+        int(cfg["cond_dim"])
+        * float(cfg.get("uv_texel_ratio", sc_defaults.uv_texel_ratio))
+    )
     conditioner = SurfaceConditioner(
         dim=int(cfg["cond_dim"]),
         out_channels=int(cfg["cond_channels"]),
@@ -46,6 +57,7 @@ def build_models(cfg: dict, device: str):
         image_size=int(cfg["image_size"]),
         resolution=int(cfg["resolution"]),
         patch=int(cfg["patch"]),
+        texel_dim=texel_dim,
     ).to(device)
     dit = MiniDiT(
         resolution=int(cfg["resolution"]),

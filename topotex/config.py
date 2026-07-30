@@ -17,6 +17,9 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+#: texel width floor: Dq below this cannot carry the bary encoding
+MIN_TEXEL_DIM = 32
+
 
 @dataclass
 class DataConfig:
@@ -45,11 +48,29 @@ class SurfaceConditionerConfig:
     topo_depth: int = 4  #: sparse topology-transformer blocks
     query_depth: int = 4  #: UV query cross-attention blocks
     image_size: int = 256  #: conditioning view resolution
+    uv_query_encoder: str = "factorized_dense"
+    uv_texel_ratio: float = 0.25  #: texel width Dq = cond_dim * ratio
+
+    @property
+    def uv_texel_dim(self) -> int:
+        """Derived texel query width Dq (dim384 -> 96, dim256 -> 64)."""
+        return int(self.cond_dim * self.uv_texel_ratio)
 
     def validate(self) -> None:
         if self.cond_dim % self.cond_heads:
             raise ValueError(
                 f"cond_dim {self.cond_dim} % cond_heads {self.cond_heads}"
+            )
+        if self.uv_query_encoder != "factorized_dense":
+            raise ValueError(
+                f"unknown uv_query_encoder {self.uv_query_encoder!r} "
+                "(factorized_dense is the only implementation; earlier "
+                "checkpoints require their own frozen commit)"
+            )
+        if self.uv_texel_dim < MIN_TEXEL_DIM:
+            raise ValueError(
+                f"uv_texel_dim {self.uv_texel_dim} < {MIN_TEXEL_DIM} "
+                f"(cond_dim {self.cond_dim} * ratio {self.uv_texel_ratio})"
             )
 
 

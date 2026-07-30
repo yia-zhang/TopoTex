@@ -26,6 +26,9 @@ cond_heads: 8
 cross_depth: 2
 topo_depth: 4
 query_depth: 4
+# UV query encoder: factorized dense (face-address + bary-MLP, Dq = cond_dim / 4)
+uv_query_encoder: factorized_dense
+uv_texel_ratio: 0.25
 image_size: 256
 # texture generator
 resolution: 256
