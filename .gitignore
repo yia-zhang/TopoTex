@@ -13,3 +13,8 @@ checkpoints/
 datasets/generated/
 glbs*.jsonl
 workspace/
+# bare names: symlink guards (dir patterns miss symlinks)
+checkpoints
+dataset
+output
+workspace
