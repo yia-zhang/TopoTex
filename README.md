@@ -34,15 +34,22 @@ parameterizations agree when rebaked.
 ## Repository
 
 ```
-datasets/    source + UV query builders, loader, rasterizer, geometry
-models/      surface_conditioner/ (Z_F encoder + UV query decoder)
-             texture_generator/  (MiniDiT velocity net + flow matching)
-configs/     topotex_fm_baseline.yaml (frozen 2K recipe) + topotex_fm_10k.yaml (official 10K)
-scripts/     8-GPU dataset build sharder
+topotex/     the installable package (docs/code_architecture.md)
+  config.py    typed configs (YAML validated at load)
+  data/        schema+contracts, loader, mesh/uv/multiview, offline builder,
+               integrity gate, diversity monitors
+  layers/      attention / embeddings / topology / flow (pure tensor)
+  models/      face_tokenizer / image_encoder / uv_query /
+               surface_conditioner / flow_matching / TopoTexModel
+  pipelines/   training / inference (TopoTexPipeline) / evaluation
+  utils/       distributed / io / logging
+train.py sample.py evaluate.py   thin CLIs over the pipelines
+configs/     topotex_fm_baseline.yaml (frozen 2K) + topotex_fm_10k.yaml
+scripts/     8-GPU wrappers (torchrun train, sharded eval, dataset build)
 notebooks/   Dataset_Inspector / Model_Inspector / Technical_Report / Pipeline_Playground
 experiments/ experiment_log.md + fm_100 / fm_2k / fm_10k records
-docs/        architecture.md / technical_report.md
-tests/       pytest suite (model invariants, dataset gates, training path)
+docs/        architecture / code_architecture / technical_report / protocol
+tests/       pytest suite incl. golden numerical-equivalence gate
 checkpoints/ baseline/ — the final baseline checkpoint (gitignored payload)
 ```
 

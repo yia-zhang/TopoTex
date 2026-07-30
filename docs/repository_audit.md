@@ -2,29 +2,29 @@
 
 Full inventory of the workspace: what exists, why, and whether it stays.
 The tree was consolidated in `6226eb1`/`029cf60` (single final method;
-history in git + `experiments/experiment_log.md`) and the **final research
-consolidation** (2026-07-30) reduced it to the paper mainline:
+history in git + `experiments/experiment_log.md`), the **final research
+consolidation** (2026-07-30) reduced it to the paper mainline, and the
+architecture refactor packaged it (`topotex/`, see
+`docs/code_architecture.md`):
 Image + Mesh → Face Set Latent `Z_F` → UV Query → Flow Matching → Texture.
 
 ## Tracked tree (git)
 
 | path | purpose | keep |
 |---|---|---|
-| `train.py` / `sample.py` / `evaluate.py` | single-command entry points (DDP-aware training, deterministic sampling, sharded evaluation) | ✔ |
+| `train.py` / `sample.py` / `evaluate.py` | thin CLIs over `topotex.pipelines` (DDP training, deterministic sampling, sharded evaluation) | ✔ |
 | `configs/topotex_fm_baseline.yaml` | frozen 2K recipe (generator fm, packed K=4, bf16, query_probs) | ✔ |
 | `configs/topotex_fm_10k.yaml` | official 10K config (token dim 384; scaling-study decision) | ✔ |
-| `datasets/build_dataset.py` | GLB → source sample (gates, six views, atomic publish, 8-GPU sharding) | ✔ |
-| `datasets/build_uv_queries.py` | source sample → canonical/alternative/partial/held-out UV queries | ✔ |
-| `datasets/merge_manifest.py` | per-rank manifest merge: no-duplicate / no-missing / schema checks | ✔ |
-| `datasets/dataset.py` | the one loader (`TopoTexDataset`) | ✔ |
-| `datasets/uv_query.py` | face adjacency + connected surface subsets | ✔ |
-| `datasets/mesh_utils.py` | rendering/geometry utilities (cameras, rasterized views, rebake, seam metric) | ✔ |
-| `datasets/rasterizer.py` | deterministic UV address rasterizer (+ self-verification) | ✔ |
-| `datasets/mv_generator.py` | frozen UniTEX stage-1 adapter (six canonical views) | ✔ |
-| `datasets/dataset_diversity.py` | geometry / topology / UV / appearance distribution monitor | ✔ |
-| `datasets/verify_integrity.py` | recursive post-finalize integrity gate (symlinks, readability, manifest completeness, provenance, deep hashes) | ✔ |
-| `models/surface_conditioner/` | face_tokenizer / image_encoder / face_image_attention / topology_pe / topology_transformer / uv_query_attention / conditioner | ✔ |
-| `models/texture_generator/` | dit.py (MiniDiT velocity net) + flow_matching.py — flow matching is the only generator | ✔ |
+| `topotex/data/builder.py` | offline construction CLI (`source`/`queries`/`merge`): gates, six views, atomic publish, 8-GPU sharding, manifest merge | ✔ |
+| `topotex/data/dataset.py` | the one loader (`TopoTexDataset`, typed batches) | ✔ |
+| `topotex/data/mesh.py` | rendering/geometry utilities (cameras, rasterized views, rebake, seam metric) | ✔ |
+| `topotex/data/uv.py` | deterministic UV address rasterizer + connected face subsets | ✔ |
+| `topotex/data/multiview.py` | frozen UniTEX stage-1 adapter (six canonical views, offline only) | ✔ |
+| `topotex/data/diversity.py` + `statistics.py` | dataset distribution monitors + final stats | ✔ |
+| `topotex/data/integrity.py` | recursive post-finalize integrity gate (symlinks, readability, manifest completeness, provenance, deep hashes) | ✔ |
+| `topotex/models/` + `topotex/layers/` | face_tokenizer / image_encoder / uv_query / surface_conditioner / flow_matching (MiniDiT) / TopoTexModel; layers: attention / embeddings / topology / flow | ✔ |
+| `topotex/config.py` + `topotex/data/schema.py` | typed configs + typed tensor contracts | ✔ |
+| `topotex/pipelines/` | training / inference (`TopoTexPipeline`) / evaluation | ✔ |
 | `notebooks/` | Dataset_Inspector / Model_Inspector / Technical_Report + Pipeline_Playground (full pipeline on user-supplied GLBs in `workspace/`) — all execute clean | ✔ |
 | `experiments/experiment_log.md` | the only home for past experiments (date/goal/dataset/model/result/conclusion/commit) | ✔ |
 | `experiments/fm_100/` `fm_2k/` `fm_10k/` | one `record.json` each (commit, config SHA, dataset SHA, metrics); fm_2k also keeps its stage-gate report; fm_10k keeps the scaling-study record | ✔ |

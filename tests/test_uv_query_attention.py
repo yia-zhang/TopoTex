@@ -2,13 +2,15 @@
 """Global UV Query Attention decoder: reconstruction from face tokens +
 barycentric position, within-face variation, background masking, and
 end-to-end gradient flow through the full conditioner."""
+
 import sys
 from pathlib import Path
 
 import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from models.surface_conditioner import SurfaceConditioner, UVQueryAttention
+from topotex.models import SurfaceConditioner
+from topotex.models.uv_query import UVQueryAttention
 
 
 def _uv_48():
@@ -31,11 +33,21 @@ def test_uv_query_reconstruction():
     valid = fid >= 0
     target = torch.zeros(48, 48, 3)
     target[fid == 0] = torch.stack(
-        [bary[fid == 0][:, 0], bary[fid == 0][:, 1],
-         torch.zeros_like(bary[fid == 0][:, 0])], dim=1)
+        [
+            bary[fid == 0][:, 0],
+            bary[fid == 0][:, 1],
+            torch.zeros_like(bary[fid == 0][:, 0]),
+        ],
+        dim=1,
+    )
     target[fid == 1] = torch.stack(
-        [torch.zeros_like(bary[fid == 1][:, 0]),
-         bary[fid == 1][:, 1], bary[fid == 1][:, 2]], dim=1)
+        [
+            torch.zeros_like(bary[fid == 1][:, 0]),
+            bary[fid == 1][:, 1],
+            bary[fid == 1][:, 2],
+        ],
+        dim=1,
+    )
     target = target.permute(2, 0, 1)
 
     dec = UVQueryAttention(dim=256, out_channels=64, patch=8, res=48)
@@ -56,7 +68,7 @@ def test_within_face_variation():
     fid, bary = _uv_48()
     dec = UVQueryAttention(dim=256, out_channels=64, patch=8, res=48).eval()
     tokens = torch.randn(2, 256)
-    bary2 = bary[:, :, [2, 0, 1]]                # permuted bary pattern
+    bary2 = bary[:, :, [2, 0, 1]]  # permuted bary pattern
     with torch.no_grad():
         c0, _ = dec(tokens, fid, bary)
         c1, _ = dec(tokens, fid, bary2)
@@ -80,16 +92,25 @@ def test_gradient_flow_all_modules():
     """Every parameter of the full conditioner receives a finite gradient."""
     torch.manual_seed(0)
     model = SurfaceConditioner(image_size=64, resolution=48)
-    V = torch.tensor([[0, 0, 0], [1, 0, 0], [0, 1, 0], [2.1, 1.7, 0.6]],
-                     dtype=torch.float32)
+    V = torch.tensor(
+        [[0, 0, 0], [1, 0, 0], [0, 1, 0], [2.1, 1.7, 0.6]], dtype=torch.float32
+    )
     F = torch.tensor([[0, 1, 2], [1, 3, 2]])
     fid, bary = _uv_48()
     imgs = torch.rand(1, 6, 3, 64, 64)
-    out = model({"vertices": V, "faces": F}, imgs,
-                {"face_id": fid, "barycentric": bary}, with_rgb=True)
+    out = model(
+        {"vertices": V, "faces": F},
+        imgs,
+        {"face_id": fid, "barycentric": bary},
+        with_rgb=True,
+    )
     loss = out["uv_rgb"].abs().mean() + out["uv_condition"].square().mean()
     loss.backward()
-    missing = [n for n, p in model.named_parameters()
-               if p.grad is None or not torch.isfinite(p.grad).all()
-               or p.grad.abs().sum() == 0]
+    missing = [
+        n
+        for n, p in model.named_parameters()
+        if p.grad is None
+        or not torch.isfinite(p.grad).all()
+        or p.grad.abs().sum() == 0
+    ]
     assert not missing, f"params without finite nonzero grad: {missing}"

@@ -72,10 +72,10 @@ partial (face-subset) queries.
 
 ## Texture Generator
 
-`MiniDiT` (`dit.py`): pixel-space transformer at 256², patch 8,
+`MiniDiT` (`topotex/models/flow_matching.py`): pixel-space transformer at 256², patch 8,
 AdaLN-Zero, serving as the velocity network; conv embeddings for noisy
 image / condition / valid mask, sin-cos 2D positions. `MaskedFlowMatching`
-(`flow_matching.py`): rectified flow — linear interpolation path
+(`topotex/layers/flow.py`): rectified flow — linear interpolation path
 `x_tau = (1-tau)·x0 + tau·eps`, velocity-MSE loss restricted to the valid
 mask (invalid region fixed at 0 through the whole trajectory), 50-step
 Euler ODE sampling.

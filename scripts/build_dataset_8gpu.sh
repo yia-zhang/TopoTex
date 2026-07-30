@@ -17,7 +17,7 @@ LOG_DIR="${LOG_DIR:-/tmp/topotex_build_logs}"; mkdir -p "$LOG_DIR"
 echo "build: $MANIFEST -> $OUTPUT on GPUs ${GPUS[*]} ($N ranks)"
 PIDS=()
 for i in "${!GPUS[@]}"; do
-  CUDA_VISIBLE_DEVICES="${GPUS[$i]}" "$PY" -m datasets.build_dataset \
+  CUDA_VISIBLE_DEVICES="${GPUS[$i]}" "$PY" -m topotex.data.builder source \
     --input-manifest "$MANIFEST" --output "$OUTPUT" \
     --world_size "$N" --rank "$i" \
     --scratch-root "/tmp/topotex_source_rank_$i" \
@@ -35,14 +35,14 @@ if [ -n "$LIMIT" ]; then
   MERGE_MANIFEST="/tmp/topotex_build_input_head.jsonl"
   head -n "$LIMIT" "$MANIFEST" > "$MERGE_MANIFEST"
 fi
-"$PY" -m datasets.merge_manifest --output "$OUTPUT" --input-manifest "$MERGE_MANIFEST"
+"$PY" -m topotex.data.builder merge --output "$OUTPUT" --input-manifest "$MERGE_MANIFEST"
 
 # stage 2: UV query set (canonical/alternative/partial/held-out per mesh),
 # sharded across the same workers (bpy/xatlas-bound; rasterizer uses the GPU)
 UVQ_OUTPUT="${UVQ_OUTPUT:-output/topotex_dataset}"
 PIDS2=()
 for i in "${!GPUS[@]}"; do
-  CUDA_VISIBLE_DEVICES="${GPUS[$i]}" "$PY" -m datasets.build_uv_queries \
+  CUDA_VISIBLE_DEVICES="${GPUS[$i]}" "$PY" -m topotex.data.builder queries \
     --output "$UVQ_OUTPUT" --world_size "$N" --rank "$i" \
     ${LIMIT:+--limit "$LIMIT"} \
     > "$LOG_DIR/uvq_rank_$i.log" 2>&1 &
@@ -51,5 +51,5 @@ done
 for i in "${!PIDS2[@]}"; do
   wait "${PIDS2[$i]}" || { echo "uvq rank $i FAILED ($LOG_DIR/uvq_rank_$i.log)"; FAIL=1; }
 done
-"$PY" -m datasets.build_uv_queries --output "$UVQ_OUTPUT" --finalize ${LIMIT:+--limit "$LIMIT"}
+"$PY" -m topotex.data.builder queries --output "$UVQ_OUTPUT" --finalize ${LIMIT:+--limit "$LIMIT"}
 exit $FAIL
