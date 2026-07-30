@@ -25,8 +25,7 @@ from datasets.mesh_utils import (CANONICAL_VIEWS, camera_matrices,
                                rasterize_view, render_albedo_rebake,
                                seam_error)
 from datasets.dataset import TopoTexDataset
-from models.texture_generator import (MaskedDiffusion,
-                                      MaskedFlowMatching)
+from models.texture_generator import MaskedFlowMatching
 from train import build_models
 
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -85,10 +84,7 @@ def main():
     conditioner.load_state_dict(ck["conditioner"])
     dit.load_state_dict(ck["dit"])
     conditioner.eval(); dit.eval()
-    sched_cls = (MaskedFlowMatching
-                 if ck["config"].get("generator") == "fm"
-                 else MaskedDiffusion)
-    diffusion = sched_cls(T=int(ck["config"]["T"]), device=device)
+    diffusion = MaskedFlowMatching(T=int(ck["config"]["T"]), device=device)
     if args.ids_file:
         blob = json.loads(Path(args.ids_file).read_text())
         pool = (blob.get("val") or blob.get("unseen") or blob
@@ -206,8 +202,7 @@ def main():
     out_path.write_text(json.dumps(
         {"run": str(run), "global_step": ck.get("global_step"),
          "n_meshes": len(rows),
-         "protocol": {"generator": ck["config"].get("generator",
-                                                     "diffusion"),
+         "protocol": {"generator": ck["config"].get("generator", "fm"),
                       "sampling_steps": DDIM, "seed": SEED,
                       "shared_Z_F": True,
                       "mean_generation_seconds": round(

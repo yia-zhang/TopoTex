@@ -42,10 +42,11 @@ every query supervises the same surface signal.
 
 ## Reference numbers
 
-**Previous diffusion reference** (`checkpoints/dit_reference`) — training:
+**Previous diffusion reference** (retired; checkpoint removed in the
+final consolidation) — training:
 `query_probs = 0.5/0.3/0.2`, 2000 exposures/mesh, 36.9M params.
 Evaluation protocol: DDIM-50, seed 20260727, one shared `Z_F` per mesh, six
-canonical render views. Numbers from `checkpoints/dit_reference/eval.json`
+canonical render views. Numbers recorded before retirement
 (first 10 training meshes; a disjoint 10-mesh group reproduces them within
 the ±1.5 dB run-to-run noise floor):
 

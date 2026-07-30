@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
-"""Masked rectified flow — drop-in alternative texture generator schedule.
+"""Masked rectified flow — the official texture generator schedule.
 
-Same contract as MaskedDiffusion so the backbone, trainer, and samplers are
-untouched:
+Contract shared by the backbone, trainer, and samplers:
   - RGB in [-1, 1]; invalid texels FIXED at 0 for every t.
   - integer t in 1..T maps to flow time tau = t/T (tau=1 is pure noise, so
     the recipe's high-t emphasis carries over unchanged).
@@ -56,5 +55,5 @@ class MaskedFlowMatching:
             x = (x - (taus[i] - taus[i + 1]) * v) * mask
         return x.clamp(-1, 1)
 
-    # call-site compatibility with MaskedDiffusion
+    # call-site alias (samplers call ddim_sample)
     ddim_sample = sample

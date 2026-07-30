@@ -33,7 +33,7 @@ sys.path.insert(0, str(PROJECT))
 
 from datasets.dataset import TopoTexDataset               # noqa: E402
 from models.surface_conditioner import build_face_graph   # noqa: E402
-from models.texture_generator import MaskedDiffusion      # noqa: E402
+from models.texture_generator import MaskedFlowMatching   # noqa: E402
 from train import build_models                            # noqa: E402
 
 DEV = "cuda:0"
@@ -169,7 +169,7 @@ def run_variant(name, cfg, ds, steps, group, seed=20260727):
     opt = torch.optim.AdamW(params, lr=float(cfg["lr"]), weight_decay=0.0,
                             betas=(0.9, 0.95))
     models = (conditioner, dit, opt, params)
-    diffusion = MaskedDiffusion(T=int(cfg["T"]), device=DEV)
+    diffusion = MaskedFlowMatching(T=int(cfg["T"]), device=DEV)
     g = torch.Generator(device=DEV).manual_seed(seed)
     g_idx = torch.Generator().manual_seed(seed + 1)
     # face-count buckets -> fixed groups (used by C/D)

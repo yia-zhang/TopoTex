@@ -14,8 +14,7 @@ import numpy as np
 import torch
 
 from datasets.dataset import TopoTexDataset
-from models.texture_generator import (MaskedDiffusion,
-                                      MaskedFlowMatching)
+from models.texture_generator import MaskedFlowMatching
 from train import build_models
 
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -37,10 +36,7 @@ def main():
     conditioner.load_state_dict(ck["conditioner"])
     dit.load_state_dict(ck["dit"])
     conditioner.eval(); dit.eval()
-    sched_cls = (MaskedFlowMatching
-                 if ck["config"].get("generator") == "fm"
-                 else MaskedDiffusion)
-    diffusion = sched_cls(T=int(ck["config"]["T"]), device=device)
+    diffusion = MaskedFlowMatching(T=int(ck["config"]["T"]), device=device)
     ids = args.ids.split(",") if args.ids else ck["samples"][: args.n]
     ds = TopoTexDataset(PROJECT_ROOT / ck["config"]["dataset_root"], ids,
                         device=device)

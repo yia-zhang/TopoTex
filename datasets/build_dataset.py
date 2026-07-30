@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """TOPOTEX source dataset builder: textured GLB -> one training sample.
 
-python -m datasets.build_dataset --input-manifest glbs.jsonl \
+python -m datasets.build_dataset --input-manifest output/source_manifests/glbs.jsonl \
     --output output/topotex_source --limit 10
 # 8-GPU sharding: --world_size 8 --rank K --device cuda:0 (one process/GPU,
 #   ids[rank::world_size], one UniTEX generator load per worker)

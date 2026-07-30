@@ -38,7 +38,7 @@
    "uv_psnr_canonical": 25.52,
    "uv_psnr_heldout": 21.63
   },
-  "stage_a_gate": "CONTINUE at 6.5% budget (reports/fm_2k_stageA)",
+  "stage_a_gate": "CONTINUE at 6.5% budget (experiments/fm_2k/stage_gate_report.md)",
   "protocol": {
    "generator": "fm",
    "sampling_steps": 50,

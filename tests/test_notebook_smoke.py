@@ -23,7 +23,7 @@ NOTEBOOKS = ["Dataset_Inspector.ipynb", "Model_Inspector.ipynb",
 def test_model_import_and_forward():
     """Model packages import and a tiny conditioner forward runs on CPU."""
     from models.surface_conditioner import SurfaceConditioner
-    from models.texture_generator import MaskedDiffusion, MiniDiT  # noqa
+    from models.texture_generator import MaskedFlowMatching, MiniDiT  # noqa
     torch.manual_seed(0)
     model = SurfaceConditioner(image_size=64, resolution=48).eval()
     V = torch.tensor([[0, 0, 0], [1, 0, 0], [0, 1, 0], [2.1, 1.7, 0.6]],

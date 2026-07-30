@@ -74,7 +74,8 @@ def test_no_dangling_imports():
                "datasets.query_sampler", "datasets.geometry",
                "datasets.unitex_mv", "train_multi_" + "uv",
                "surface_query_decoder", "mini_" + "dit",
-               "face_mv_" + "attention", "build_source"]
+               "face_mv_" + "attention", "build_source",
+               "maskeddiff" + "usion", "texture_generator.diff" + "usion"]
     offenders = []
     for f in _tracked_files():
         if f.suffix not in {".py", ".ipynb"} or f.name == Path(__file__).name:

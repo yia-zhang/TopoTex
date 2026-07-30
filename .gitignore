@@ -1,8 +1,6 @@
 dataset/
 output/
 paper/
-texdit/experiments/
-texdit/provenance_cache.json
 __pycache__/
 *.pyc
 .pytest_cache/

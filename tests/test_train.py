@@ -26,7 +26,7 @@ needs_data = pytest.mark.skipif(not (HAVE_DATA and HAVE_CUDA),
 def test_model_forward_and_gradient_flow():
     import yaml
     from datasets.dataset import TopoTexDataset
-    from models.texture_generator import MaskedDiffusion
+    from models.texture_generator import MaskedFlowMatching
     from train import build_models
     cfg = yaml.safe_load(open(PROJECT / "configs" / "topotex_fm_baseline.yaml"))
     ids = [json.loads(l)["sample_id"]
@@ -34,7 +34,7 @@ def test_model_forward_and_gradient_flow():
     ds = TopoTexDataset(DATASET, ids, device="cuda:0")
     it = ds[0]
     conditioner, dit = build_models(cfg, "cuda:0")
-    diffusion = MaskedDiffusion(T=1000, device="cuda:0")
+    diffusion = MaskedFlowMatching(T=1000, device="cuda:0")
     q = it["uv_queries"][0]
     mask = q["valid_mask"].float()[None, None]
     x0 = (q["gt_texture"][None] * 2 - 1) * mask

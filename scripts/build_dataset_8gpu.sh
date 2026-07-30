@@ -3,7 +3,7 @@
 # resume-skip, per-sample error logs; merges per-rank manifests at the end
 # (datasets/merge_manifest.py: no duplicate / no missing / schema valid).
 #   GPU_IDS=0,1,2,3,4,5,6,7 bash scripts/build_dataset_8gpu.sh \
-#     glbs.jsonl output/topotex_source [LIMIT]
+#     output/source_manifests/glbs.jsonl output/topotex_source [LIMIT]
 set -euo pipefail
 cd "$(dirname "$0")/.."
 PY="${PY:-/root/miniconda3/envs/geomae/bin/python}"

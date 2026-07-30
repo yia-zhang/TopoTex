@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased — final research repository consolidation (2026-07-30)
+
+- **One mainline.** Image + Mesh → Face Set Latent `Z_F` → UV Query →
+  Flow Matching → Texture; status snapshot in `docs/current_status.md`.
+- **Flow matching is the only generator.** The masked-diffusion schedule,
+  its retired reference checkpoint, and the `--generator diffusion` branch
+  are removed (code recoverable from git history); FM schedule invariants
+  covered by `tests/test_flow_matching.py`.
+- **Experiments unified.** `experiments/experiment_log.md` +
+  `fm_100` / `fm_2k` / `fm_10k` records (commit, config SHA, dataset SHA,
+  metrics); the model scaling study lives under
+  `experiments/fm_10k/scaling/`; the fm_2k stage-gate decision report is
+  tracked at `experiments/fm_2k/stage_gate_report.md`.
+- **Historical outputs deleted.** `runs/`, `reports/`, intermediate
+  checkpoints, and the superseded 1k UV-query base; kept checkpoints are
+  `checkpoints/baseline` (fm_2k) and `checkpoints/fm_100_reference`.
+
 ## v0.1.0-fm-baseline — 2026-07-29
 
 Initial public release of the TOPOTEX research codebase.

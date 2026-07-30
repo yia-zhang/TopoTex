@@ -36,11 +36,11 @@ parameterizations agree when rebaked.
 ```
 datasets/    source + UV query builders, loader, rasterizer, geometry
 models/      surface_conditioner/ (Z_F encoder + UV query decoder)
-             texture_generator/  (MiniDiT + masked diffusion)
-configs/     baseline.yaml — the single frozen recipe
+             texture_generator/  (MiniDiT velocity net + flow matching)
+configs/     topotex_fm_baseline.yaml (frozen 2K recipe) + topotex_fm_10k.yaml (official 10K)
 scripts/     8-GPU dataset build sharder
 notebooks/   Dataset_Inspector / Model_Inspector / Technical_Report
-experiments/ experiment_log.md (history) + protocol manifests
+experiments/ experiment_log.md + fm_100 / fm_2k / fm_10k records
 docs/        architecture.md / technical_report.md
 tests/       pytest suite (model invariants, dataset gates, training path)
 checkpoints/ baseline/ — the final baseline checkpoint (gitignored payload)
@@ -69,13 +69,13 @@ Loader: `datasets.dataset.TopoTexDataset` (train queries vs
 PY=/root/miniconda3/envs/geomae/bin/python
 
 # 1) source ingest: textured GLB -> reference/mesh/six-views/gt sample
-$PY -m datasets.build_dataset --input-manifest glbs_eligible.jsonl \
+$PY -m datasets.build_dataset --input-manifest output/source_manifests/glbs_eligible.jsonl \
     --output output/topotex_source --limit 10
 # 8-GPU sharded (ids[rank::8], one UniTEX load per worker, atomic publish,
 # resume-skip; per-rank manifest_rank_K.jsonl merged by merge_manifest.py
 # with no-duplicate / no-missing / schema checks)
 GPU_IDS=0,1,2,3,4,5,6,7 bash scripts/build_dataset_8gpu.sh \
-    glbs_eligible.jsonl output/topotex_source
+    output/source_manifests/glbs_eligible.jsonl output/topotex_source
 
 # 2) UV query set: canonical / alternative / partial / held-out per mesh
 $PY -m datasets.build_uv_queries --limit 265
@@ -99,9 +99,7 @@ stage-1 generator (MV + delight); view mapping `[0,3,1,4,2,5]` is verified.
   flow — `x_tau = (1-tau)·x0 + tau·eps`, the patchified transformer
   (`dit.py`, 256², patch 8, AdaLN-Zero) predicts the velocity field;
   sampling is a 50-step Euler ODE from tau=1 to 0. Noise and loss live
-  only inside the UV valid mask. The masked-diffusion schedule is kept
-  solely to load the previous reference checkpoint
-  (`checkpoints/dit_reference`).
+  only inside the UV valid mask. Flow matching is the only generator.
 
 ## Training
 
@@ -112,8 +110,6 @@ GPU_IDS=0,1,2,3,4,5,6,7 bash scripts/train_8gpu.sh \
     --samples 2000 --run-name fm_2k [--resume]
 # single-GPU (small runs / smoke)
 $PY train.py --samples 265 --run-name baseline [--resume]
-# generator defaults to flow matching (config); --generator diffusion loads
-# the previous reference schedule
 $PY sample.py   --run checkpoints/baseline --n 4 [--include-heldout]
 ```
 

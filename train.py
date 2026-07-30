@@ -39,8 +39,7 @@ def ddp_env():
 
 from datasets.dataset import TopoTexDataset
 from models.surface_conditioner import SurfaceConditioner, build_face_graph
-from models.texture_generator import (MaskedDiffusion,
-                                      MaskedFlowMatching, MiniDiT)
+from models.texture_generator import MaskedFlowMatching, MiniDiT
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 
@@ -174,10 +173,9 @@ def main():
     ap.add_argument("--ids-file", default=None,
                     help="json file with {'train': [...]} or a plain list — "
                          "overrides manifest ordering (mesh-level splits)")
-    ap.add_argument("--generator", default=None,
-                    choices=["diffusion", "fm"],
-                    help="texture generator schedule (default: config value "
-                         "or diffusion); recorded in the checkpoint")
+    ap.add_argument("--generator", default=None, choices=["fm"],
+                    help="texture generator schedule (flow matching is the "
+                         "only generator); recorded in the checkpoint")
     args = ap.parse_args()
     cfg = yaml.safe_load(open(args.config))
     if args.seed is not None:
@@ -215,7 +213,7 @@ def main():
 
     if args.generator is not None:
         cfg["generator"] = args.generator
-    cfg.setdefault("generator", "diffusion")
+    cfg.setdefault("generator", "fm")
     # packed mode stores data on CPU past 300 meshes (moved per step) and
     # skips per-item graphs (group graphs are packed at startup instead).
     # Under DDP each rank owns a disjoint shard of the bucketed groups and
@@ -231,9 +229,7 @@ def main():
     ds = TopoTexDataset(root, my_ids, device=data_dev,
                         build_graphs=(group_size == 1))
     conditioner, dit = build_models(cfg, device)
-    sched_cls = (MaskedFlowMatching if cfg["generator"] == "fm"
-                 else MaskedDiffusion)
-    diffusion = sched_cls(T=int(cfg["T"]), device=device)
+    diffusion = MaskedFlowMatching(T=int(cfg["T"]), device=device)
     groups = (build_groups(ds, group_size, device,
                            topo_pe=conditioner.topo_pe)
               if group_size > 1 else None)

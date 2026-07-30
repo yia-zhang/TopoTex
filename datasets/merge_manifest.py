@@ -2,7 +2,7 @@
 """Merge per-rank build manifests into the final dataset manifest.
 
 python -m datasets.merge_manifest --output output/topotex_source \
-    [--input-manifest glbs_eligible.jsonl]
+    [--input-manifest output/source_manifests/glbs_eligible.jsonl]
 
 Checks:
   no duplicate  -- the same sample_id recorded by two ranks must agree

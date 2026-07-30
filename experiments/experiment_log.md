@@ -179,8 +179,9 @@ that are not conclusions.
 - **dataset** 10-mesh comparison plus the packed-configuration ladder
   (single-mesh overfit, 10-mesh); 2K-scale run in progress.
 - **model** unchanged 36.9M pipeline; rectified flow as the official
-  schedule, masked diffusion retained only to load the previous reference
-  checkpoint (`checkpoints/dit_reference`).
+  schedule, masked diffusion retained at the time only to load the
+  previous reference checkpoint (both removed in the final consolidation;
+  the schedule code lives in git history at this commit).
 - **result** Under the official packed/bf16 configuration: single-mesh
   overfit canonical 48.97 dB (diffusion ~39); 10-mesh canonical 21.27 /
   alternative 20.65 / partial 21.86 / held-out 14.25 dB with render
@@ -259,6 +260,38 @@ that are not conclusions.
 - **dataset** 265 meshes × (canonical / alternative-xatlas / partial
   surface query) + held-out Smart-UV family, 256².
 - **training** weighted query sampling 0.5/0.3/0.2, 2000 exposures/mesh.
-- **numbers** see `docs/technical_report.md`; checkpoint under
-  `checkpoints/dit_reference/`.
+- **numbers** see `docs/technical_report.md`; reference checkpoint removed
+  in the final consolidation (flow matching is the only generator).
 - **commit** ac38760, then the consolidation commit (this one).
+
+---
+
+## Final consolidation (paper mainline freeze)
+
+- **date** 2026-07-30
+- **decision** dim384 is the official 10K configuration
+  (`configs/topotex_fm_10k.yaml`): +1.3 dB reconstruction and better
+  consistency at 51.8M params, dim512 saturated, depth6/fm512 flat,
+  held-out unchanged everywhere. No further architecture search before
+  the 10K run completes. Scaling-study record moved to
+  `experiments/fm_10k/scaling/`.
+- **cleanup** Single mainline kept: Image + Mesh → Face Set Latent `Z_F` →
+  UV Query → Flow Matching → Texture. Masked-diffusion generator deleted
+  (schedule + retired reference checkpoint; code recoverable at the
+  commit above); FM schedule invariants covered by
+  `tests/test_flow_matching.py`. Historical run outputs (`runs/`,
+  `reports/`, intermediate checkpoints, the superseded 1k UV-query base)
+  removed — every number that matters is in this log and
+  `experiments/*/record.json`. Kept checkpoints: `checkpoints/baseline`
+  (fm_2k official) and `checkpoints/fm_100_reference`.
+- **incident** Deleting the superseded 1k UV-query base broke the 265 oldest
+  2K-dataset samples whose `uv_000/uv_001/uv_test` were directory-level
+  symlinks into it. Rebuilt with the frozen builder from the intact
+  source: canonical / alternative / held-out reproduce the original
+  values exactly (byte-identical on the retained reference copy);
+  `uv_002` changed on 115 multi-component meshes because the original
+  copies predate the connected-subset reseed fix (they kept fewer faces
+  than the target fraction). The dataset now matches the current frozen
+  builder — the same code the 10K build uses; partial-axis metrics on
+  those meshes are therefore not comparable to pre-rebuild numbers.
+- **status** current pipeline + next steps in `docs/current_status.md`.
