@@ -146,8 +146,12 @@ def check_sample(root, sid, kind, deep, source_root=None):
         fails.append(f"{sid}: meta lists queries {sorted(qmeta)}")
 
     if deep and not fails:
+        import numpy as np
+        from PIL import Image
         from safetensors.numpy import load_file
 
+        mesh = load_file(str(d / "mesh.safetensors"))
+        n_faces = int(mesh["faces"].shape[0])
         for q in QUERIES:
             m = qmeta[q]
             arr = load_file(
@@ -162,6 +166,36 @@ def check_sample(root, sid, kind, deep, source_root=None):
                     fails.append(f"{sid}: {q} {field} not recorded")
                 elif sha256_bytes(arr[key].tobytes()) != want:
                     fails.append(f"{sid}: {q} {field} MISMATCH")
+            # content sanity: address ranges, mask consistency, finite
+            # barycentrics summing to 1, partial GT zero outside region
+            fid = arr["face_id"]
+            bary = arr["barycentric"]
+            vm = arr["valid_mask"].astype(bool)
+            if fid.max() >= n_faces:
+                fails.append(
+                    f"{sid}: {q} face_id {int(fid.max())} >= F={n_faces}"
+                )
+            if not ((fid >= 0) == vm).all():
+                fails.append(f"{sid}: {q} valid_mask != (face_id >= 0)")
+            if not np.isfinite(bary).all():
+                fails.append(f"{sid}: {q} barycentric NaN/Inf")
+            elif vm.any():
+                s = bary.transpose(1, 2, 0)[vm].sum(-1)
+                if np.abs(s - 1).max() > 5e-3:
+                    fails.append(
+                        f"{sid}: {q} barycentric sum off by "
+                        f"{float(np.abs(s - 1).max()):.2e}"
+                    )
+            if q == "uv_002":
+                gt = np.asarray(
+                    Image.open(
+                        d / "uv_queries" / q / "gt_texture.png"
+                    ).convert("RGB")
+                )
+                if gt[~vm].any():
+                    fails.append(
+                        f"{sid}: uv_002 GT nonzero outside its region"
+                    )
         want = meta.get("source_texture_sha256")
         src_tex = (
             (source_root or data_root("source", PROJECT_ROOT))
