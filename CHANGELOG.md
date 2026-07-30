@@ -2,6 +2,20 @@
 
 ## Unreleased — final research repository consolidation (2026-07-30)
 
+- **Recursive data integrity gate.** `datasets/verify_integrity.py` checks
+  every official sample after each build-stage finalize: dangling symlinks
+  at any depth, unreadable required files, manifest completeness
+  (missing/incomplete official samples fail; unmanifested dirs warn),
+  builder provenance, and `--deep` content hashes; covered by
+  `tests/test_verify_integrity.py`.
+- **Query provenance metadata.** `build_uv_queries` records
+  `query_schema_version`, `query_builder_commit`, per-query
+  `face_id_sha256` / `barycentric_sha256`, and `source_texture_sha256` in
+  every `meta.json` (existing samples backfilled additively).
+- **Protocol breakpoint documented.** Pre-2026-07-30 partial-axis numbers
+  are not comparable to the repaired partial data; all other axes remain
+  comparable (`docs/experiment_protocol.md`).
+
 - **One mainline.** Image + Mesh → Face Set Latent `Z_F` → UV Query →
   Flow Matching → Texture; status snapshot in `docs/current_status.md`.
 - **Flow matching is the only generator.** The masked-diffusion schedule,

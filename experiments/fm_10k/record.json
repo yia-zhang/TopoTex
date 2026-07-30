@@ -11,7 +11,8 @@
   "root": "output/topotex_dataset",
   "n_meshes": "~9500 train",
   "split": "experiments/protocol/scaling_10k_split.json (500 unseen-mesh validation)",
-  "manifest_sha256": "pending (10K build in progress)"
+  "manifest_sha256": "pending (10K build in progress)",
+  "integrity_gate": "datasets/verify_integrity.py --deep must pass on source + dataset before training"
  },
  "evaluation_axes": [
   "canonical UV",

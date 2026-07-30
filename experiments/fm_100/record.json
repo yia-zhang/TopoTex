@@ -49,5 +49,6 @@
  "checkpoint_path": "checkpoints/baseline/ckpt.pt",
  "status": "complete",
  "recorded_at": "2026-07-29T13:04:06",
- "throughput": "224 mesh-exposures/s on 8xH800 (training 15.0 min)"
+ "throughput": "224 mesh-exposures/s on 8xH800 (training 15.0 min)",
+ "protocol_note": "partial-axis metrics predate the 2026-07-30 partial data repair; see docs/experiment_protocol.md, Protocol breakpoint."
 }

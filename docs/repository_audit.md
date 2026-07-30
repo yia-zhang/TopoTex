@@ -22,6 +22,7 @@ Image + Mesh → Face Set Latent `Z_F` → UV Query → Flow Matching → Textur
 | `datasets/rasterizer.py` | deterministic UV address rasterizer (+ self-verification) | ✔ |
 | `datasets/mv_generator.py` | frozen UniTEX stage-1 adapter (six canonical views) | ✔ |
 | `datasets/dataset_diversity.py` | geometry / topology / UV / appearance distribution monitor | ✔ |
+| `datasets/verify_integrity.py` | recursive post-finalize integrity gate (symlinks, readability, manifest completeness, provenance, deep hashes) | ✔ |
 | `models/surface_conditioner/` | face_tokenizer / image_encoder / face_image_attention / topology_pe / topology_transformer / uv_query_attention / conditioner | ✔ |
 | `models/texture_generator/` | dit.py (MiniDiT velocity net) + flow_matching.py — flow matching is the only generator | ✔ |
 | `notebooks/` | Dataset_Inspector / Model_Inspector / Technical_Report — exactly three, all execute clean | ✔ |

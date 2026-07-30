@@ -41,3 +41,36 @@ two disjoint 10-mesh groups.
 
 `uv_test` (Blender Smart UV) is never sampled during training — the loader
 separates it structurally (`test_uv_queries`), not by convention.
+
+## Protocol breakpoint (2026-07-30, partial axis only)
+
+The final consolidation rebuilt the UV queries of 265 samples with the
+frozen builder; their partial (`uv_002`) queries previously predated the
+connected-subset reseed fix and kept fewer faces than the target fraction
+on multi-component meshes (115 samples). The official dataset is now
+uniformly consistent with the frozen builder — every partial query reaches
+its target fraction.
+
+Consequences for comparisons against numbers recorded before 2026-07-30
+(fm_100 / fm_2k records and older log entries):
+
+| axis | comparable? |
+|---|---|
+| canonical UV PSNR | ✔ (queries reproduce exactly) |
+| alternative UV PSNR | ✔ (queries reproduce exactly) |
+| held-out UV PSNR | ✔ (queries reproduce exactly) |
+| full-query render consistency / GT fidelity | ✔ |
+| seam consistency | ✔ |
+| partial region PSNR / partial gap | ✘ — measured against pre-fix partial data; treat pre/post numbers as different protocols |
+
+All numbers produced from 2026-07-30 onward (including every fm_10k axis)
+use the current data and are mutually comparable.
+
+## Data integrity gate
+
+`datasets/verify_integrity.py` runs after source-build finalize and after
+UV-query-build finalize (and on demand): recursive dangling-symlink scan,
+required-file readability, manifest completeness (every manifest id must be a complete readable sample — FAIL; sample dirs not in the manifest are reported as warnings, since the loader reads the manifest only), builder provenance
+(`query_schema_version` / `query_builder_commit`), and `--deep` content
+hashes (`face_id`, `barycentric`, source texture) against `meta.json`.
+A training or evaluation run must not start on a dataset whose gate fails.

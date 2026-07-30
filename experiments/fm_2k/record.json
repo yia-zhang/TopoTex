@@ -50,5 +50,6 @@
  "checkpoint_path": "checkpoints/baseline/ckpt.pt",
  "status": "complete",
  "recorded_at": "2026-07-29T17:38:53",
- "throughput": "243 mesh-exposures/s on 8xH800 (272 min total)"
+ "throughput": "243 mesh-exposures/s on 8xH800 (272 min total)",
+ "protocol_note": "partial-axis metrics (partial_region_psnr, canonical_same_region_psnr) were measured against pre-reseed-fix partial queries; not comparable to post-2026-07-30 data. All other axes comparable (docs/experiment_protocol.md, Protocol breakpoint)."
 }

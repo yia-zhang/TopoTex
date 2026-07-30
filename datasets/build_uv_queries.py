@@ -25,8 +25,10 @@ samples/<id>/
     meta.json
 """
 import argparse
+import hashlib
 import json
 import os
+import subprocess
 import time
 from pathlib import Path
 
@@ -40,6 +42,28 @@ RES = 256
 SCHEMA = "topotex_dataset@1"
 PARTIAL_SEED = 20260729
 PARTIAL_FRACS = (0.25, 0.5, 0.75)
+
+
+def builder_commit():
+    """Short commit of the builder code writing this sample (provenance,
+    recorded in meta.json and checked by datasets.verify_integrity).
+    A modified working tree is stamped '-dirty' — a clean commit id must
+    never be recorded for code that commit does not contain."""
+    try:
+        c = subprocess.check_output(
+            ["git", "-C", str(PROJECT_ROOT), "rev-parse", "--short", "HEAD"],
+            text=True, stderr=subprocess.DEVNULL).strip()
+        dirty = subprocess.check_output(
+            ["git", "-C", str(PROJECT_ROOT), "status", "--porcelain",
+             "--untracked-files=no"],
+            text=True, stderr=subprocess.DEVNULL).strip()
+        return c + ("-dirty" if dirty else "")
+    except Exception:
+        return None
+
+
+def sha256_bytes(b):
+    return hashlib.sha256(b).hexdigest()
 
 
 def bilinear_u8(tex_u8, uv):
@@ -206,11 +230,20 @@ def build_sample(sid, out_root):
         queries.append({"name": name, "type": qtype,
                         "held_out": qtype == "heldout",
                         "valid_texels": int(valid.sum()),
-                        "n_uv_vertices": int(len(uvv)), **extra})
-    (dst / "meta.json").write_text(json.dumps(
+                        "n_uv_vertices": int(len(uvv)),
+                        "face_id_sha256": sha256_bytes(fid.tobytes()),
+                        "barycentric_sha256": sha256_bytes(bary.tobytes()),
+                        **extra})
+    meta_tmp = dst / "meta.json.part"
+    meta_tmp.write_text(json.dumps(
         {"sample_id": sid, "schema": SCHEMA, "source": "topotex_source",
          "num_faces": int(len(F)), "uv_queries": queries,
+         "query_schema_version": SCHEMA,
+         "query_builder_commit": builder_commit(),
+         "source_texture_sha256": sha256_bytes(
+             (src / "gt_texture.png").read_bytes()),
          "build_seconds": round(time.time() - t0, 1)}, indent=1))
+    os.replace(meta_tmp, dst / "meta.json")   # atomic: no truncated metas
     return queries
 
 
@@ -241,7 +274,10 @@ def main():
     for sid in ids:
         meta_f = out_root / "samples" / sid / "meta.json"
         if meta_f.exists():
-            qs = json.loads(meta_f.read_text())["uv_queries"]
+            try:                       # corrupt meta -> fall through, rebuild
+                qs = json.loads(meta_f.read_text())["uv_queries"]
+            except Exception:
+                qs = []
             if len(qs) == 4:                      # complete -> skip rebuild
                 rows.append({"sample_id": sid,
                              "valid_texels": [q["valid_texels"] for q in qs]})

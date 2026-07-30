@@ -43,13 +43,27 @@ git history, numbers in `experiments/experiment_log.md`).
 ## In progress — 10K scaling
 
 - 10K source build running (8-GPU sharded, resume-safe, manifest + SHA).
-- Then: frozen 9500/500 mesh-level split
-  (`experiments/protocol/scaling_10k_split.json`), 2K-vs-10K dataset
-  diversity report, fm_10k training with evaluation gates at 10% / 50% /
-  100% (gallery + unseen-mesh evaluation + query consistency).
+- Strict order after the build:
+  10K finalize → **integrity gate** (source + dataset,
+  `datasets/verify_integrity.py`, deep) → frozen 9500/500 mesh-level split
+  (`experiments/protocol/scaling_10k_split.json`) → dataset diversity
+  report → dim384 FM training → 10% / 50% / 100% gates (gallery +
+  unseen-mesh evaluation + query consistency) → unseen-mesh evaluation.
 - Six required evaluation axes: canonical UV, alternative UV, held-out UV,
   partial query, seam consistency, unseen-mesh validation
   (`experiments/fm_10k/record.json`).
+- Protocol breakpoint: pre-2026-07-30 **partial-axis** numbers (fm_100 /
+  fm_2k records) are not comparable to the repaired partial data; the
+  canonical / alternative / held-out / full-query consistency / seam axes
+  remain comparable (`docs/experiment_protocol.md`).
+
+## Frozen until the 10K run completes
+
+- no deleting or moving data directories
+- no renaming core modules
+- no changes to the dataset schema, `Z_F`, UV Query, or the FM generator
+- notebooks stay exactly three (Dataset_Inspector / Model_Inspector /
+  Technical_Report); refreshed together once the 10K data is ready
 
 ## Entry points
 
