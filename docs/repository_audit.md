@@ -25,7 +25,7 @@ Image + Mesh → Face Set Latent `Z_F` → UV Query → Flow Matching → Textur
 | `datasets/verify_integrity.py` | recursive post-finalize integrity gate (symlinks, readability, manifest completeness, provenance, deep hashes) | ✔ |
 | `models/surface_conditioner/` | face_tokenizer / image_encoder / face_image_attention / topology_pe / topology_transformer / uv_query_attention / conditioner | ✔ |
 | `models/texture_generator/` | dit.py (MiniDiT velocity net) + flow_matching.py — flow matching is the only generator | ✔ |
-| `notebooks/` | Dataset_Inspector / Model_Inspector / Technical_Report — exactly three, all execute clean | ✔ |
+| `notebooks/` | Dataset_Inspector / Model_Inspector / Technical_Report + Pipeline_Playground (full pipeline on user-supplied GLBs in `workspace/`) — all execute clean | ✔ |
 | `experiments/experiment_log.md` | the only home for past experiments (date/goal/dataset/model/result/conclusion/commit) | ✔ |
 | `experiments/fm_100/` `fm_2k/` `fm_10k/` | one `record.json` each (commit, config SHA, dataset SHA, metrics); fm_2k also keeps its stage-gate report; fm_10k keeps the scaling-study record | ✔ |
 | `docs/` | architecture / technical_report / experiment_protocol / current_status / this audit | ✔ |
@@ -45,6 +45,7 @@ Image + Mesh → Face Set Latent `Z_F` → UV Query → Flow Matching → Textur
 | `checkpoints/fm_100_reference/` | fm_100 record's checkpoint | keep |
 | `dataset/` (TexVerse) | raw downloaded assets — never deleted | keep |
 | `paper/` | external reference material (not project code) | keep, ignored |
+| `workspace/` | user-supplied GLBs + Pipeline_Playground outputs | keep, ignored |
 | `runs/` | training run outputs — recreated by training, pruned after records land | ephemeral |
 | `reports/` | stage-gate working dirs — decision reports migrate into `experiments/` | ephemeral |
 

@@ -39,7 +39,7 @@ models/      surface_conditioner/ (Z_F encoder + UV query decoder)
              texture_generator/  (MiniDiT velocity net + flow matching)
 configs/     topotex_fm_baseline.yaml (frozen 2K recipe) + topotex_fm_10k.yaml (official 10K)
 scripts/     8-GPU dataset build sharder
-notebooks/   Dataset_Inspector / Model_Inspector / Technical_Report
+notebooks/   Dataset_Inspector / Model_Inspector / Technical_Report / Pipeline_Playground
 experiments/ experiment_log.md + fm_100 / fm_2k / fm_10k records
 docs/        architecture.md / technical_report.md
 tests/       pytest suite (model invariants, dataset gates, training path)

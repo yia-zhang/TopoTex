@@ -17,7 +17,7 @@ HAVE_DATA = (DATASET / "manifest.jsonl").exists()
 HAVE_CKPT = (PROJECT / "checkpoints" / "baseline" / "ckpt.pt").exists()
 HAVE_CUDA = torch.cuda.is_available()
 NOTEBOOKS = ["Dataset_Inspector.ipynb", "Model_Inspector.ipynb",
-             "Technical_Report.ipynb"]
+             "Technical_Report.ipynb", "Pipeline_Playground.ipynb"]
 
 
 def test_model_import_and_forward():

@@ -47,8 +47,9 @@ git history, numbers in `experiments/experiment_log.md`).
   10K finalize → **integrity gate** (source + dataset,
   `datasets/verify_integrity.py`, deep) → frozen 9500/500 mesh-level split
   (`experiments/protocol/scaling_10k_split.json`) → dataset diversity
-  report → dim384 FM training → 10% / 50% / 100% gates (gallery +
-  unseen-mesh evaluation + query consistency) → unseen-mesh evaluation.
+  report → dim384 FM training (**launch only on explicit user confirmation**)
+  → 10% / 50% / 100% gates (gallery + unseen-mesh evaluation + query
+  consistency) → unseen-mesh evaluation.
 - Six required evaluation axes: canonical UV, alternative UV, held-out UV,
   partial query, seam consistency, unseen-mesh validation
   (`experiments/fm_10k/record.json`).
@@ -62,8 +63,9 @@ git history, numbers in `experiments/experiment_log.md`).
 - no deleting or moving data directories
 - no renaming core modules
 - no changes to the dataset schema, `Z_F`, UV Query, or the FM generator
-- notebooks stay exactly three (Dataset_Inspector / Model_Inspector /
-  Technical_Report); refreshed together once the 10K data is ready
+- maintained notebooks: Dataset_Inspector / Model_Inspector /
+  Technical_Report + Pipeline_Playground (interactive pipeline on
+  user-supplied GLBs); refreshed together once the 10K data is ready
 
 ## Entry points
 

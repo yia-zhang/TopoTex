@@ -11,3 +11,4 @@ CLAUDE.md
 checkpoints/
 datasets/generated/
 glbs*.jsonl
+workspace/
