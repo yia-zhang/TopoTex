@@ -15,7 +15,9 @@ import torch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 PROJECT = Path(__file__).resolve().parents[1]
-DATASET = PROJECT / "output" / "topotex_dataset"
+from topotex.paths import data_root  # noqa: E402
+
+DATASET = data_root("dataset", PROJECT)
 HAVE_DATA = (DATASET / "manifest.jsonl").exists()
 HAVE_CUDA = torch.cuda.is_available()
 PY = sys.executable
@@ -92,7 +94,7 @@ def test_checkpoint_save_load_resume():
         **os.environ,
         "CUDA_VISIBLE_DEVICES": os.environ.get("CUDA_VISIBLE_DEVICES", "0"),
     }
-    run = PROJECT / "runs" / "_test_resume"
+    run = data_root("runs", PROJECT) / "_test_resume"
     if run.exists():
         shutil.rmtree(run)
     base = [

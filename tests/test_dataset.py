@@ -19,8 +19,10 @@ from topotex.data.builder import (
 )
 
 PROJECT = Path(__file__).resolve().parents[1]
+from topotex.paths import data_root  # noqa: E402
+
 SOURCE = PROJECT / "output" / "topotex_source"
-DATASET = PROJECT / "output" / "topotex_dataset"
+DATASET = data_root("dataset", PROJECT)
 HAVE_SOURCE = (SOURCE / "manifest.jsonl").exists()
 HAVE_DATASET = (DATASET / "manifest.jsonl").exists()
 

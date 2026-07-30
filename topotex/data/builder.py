@@ -342,7 +342,9 @@ def main_source():
     args = ap.parse_args()
     if args.device:
         os.environ["CUDA_VISIBLE_DEVICES"] = args.device.split(":")[-1]
-    out_dir = Path(args.output).resolve()
+    out_dir = resolve_cli_root(
+        "source", PROJECT_ROOT, args.output, "output/topotex_source"
+    ).resolve()
     if args.finalize:
         finalize_source(out_dir)
         return
@@ -509,9 +511,10 @@ samples/<id>/
 import subprocess
 
 from topotex.data.uv import connected_subset, face_adjacency
+from topotex.paths import data_root, resolve_cli_root
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-SOURCE_ROOT = PROJECT_ROOT / "output" / "topotex_source"
+SOURCE_ROOT = data_root("source", PROJECT_ROOT)
 RES = 256
 SCHEMA = "topotex_dataset@1"
 PARTIAL_SEED = 20260729
@@ -799,7 +802,9 @@ def main_queries():
         "manifest.jsonl + dataset_meta.json",
     )
     args = ap.parse_args()
-    out_root = Path(args.output).resolve()
+    out_root = resolve_cli_root(
+        "dataset", PROJECT_ROOT, args.output, "output/topotex_dataset"
+    ).resolve()
     if args.finalize:
         finalize_queries(out_root, args.limit)
         return
@@ -974,7 +979,12 @@ def main_merge():
         help="optional: verify every input id is accounted for",
     )
     args = ap.parse_args()
-    merge(Path(args.output), input_manifest=args.input_manifest)
+    merge(
+        resolve_cli_root(
+            "source", PROJECT_ROOT, args.output, "output/topotex_source"
+        ),
+        input_manifest=args.input_manifest,
+    )
 
 
 # ================================================================== CLI

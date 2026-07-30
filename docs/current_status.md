@@ -81,3 +81,27 @@ bash scripts/build_dataset_8gpu.sh <manifest> output/topotex_source <limit>
 
 Notebooks (`Dataset_Inspector` / `Model_Inspector` / `Technical_Report`)
 are the maintained dashboards; all three execute clean end to end.
+
+## Data-path policy (post-incident)
+
+Persistent data roots are resolved via environment variables
+(`TOPOTEX_DATASET_ROOT`, `TOPOTEX_SOURCE_ROOT`, `TOPOTEX_CHECKPOINT_ROOT`,
+`TOPOTEX_RUN_ROOT`; see `topotex/paths.py`). The repository contains code
+only — no symlink may point from a checkout to persistent data, no tracked
+entry may use a reserved data name, and every merge/checkout into the
+canonical workspace must first pass
+`python scripts/check_git_tree_safety.py <commit>` (enforced permanently by
+`tests/test_repo_hygiene.py`).
+
+## 2026-07-30 data incident (status)
+
+An interrupted fast-forward checkout of a branch that tracked worktree
+symlinks deleted the gitignored real data directories (full analysis:
+`forensic_report.md` in the rescue set; inventories + admin recovery
+request + deterministic rebuild plan alongside it). Rescued and
+SHA-verified in quadruplicate: 8,889/9,919 query samples, the frozen
+10,032-id build manifest, the 9,419/500 split (seed 20260727), golden
+reference tensors. The 10K run (`fm_10k_dim384_factorized`, random init)
+starts only after the dataset is restored or rebuilt at an
+administrator-approved protected root.
+

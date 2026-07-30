@@ -17,6 +17,8 @@ from pathlib import Path
 
 import numpy as np
 
+from topotex.paths import resolve_cli_root
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -41,8 +43,12 @@ def main():
         "accounting for the final report",
     )
     args = ap.parse_args()
-    src = (PROJECT_ROOT / args.source).resolve()
-    dst = (PROJECT_ROOT / args.dataset).resolve()
+    src = resolve_cli_root(
+        "source", PROJECT_ROOT, args.source, "output/topotex_source"
+    ).resolve()
+    dst = resolve_cli_root(
+        "dataset", PROJECT_ROOT, args.dataset, "output/topotex_dataset"
+    ).resolve()
     out_path = Path(args.out) if args.out else dst / "dataset_statistics.json"
 
     src_rows = [json.loads(l) for l in open(src / "manifest.jsonl")]

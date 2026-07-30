@@ -13,9 +13,12 @@ import torch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 PROJECT = Path(__file__).resolve().parents[1]
-DATASET = PROJECT / "output" / "topotex_dataset"
+from topotex.paths import data_root  # noqa: E402
+
+DATASET = data_root("dataset", PROJECT)
 HAVE_DATA = (DATASET / "manifest.jsonl").exists()
-HAVE_CKPT = (PROJECT / "checkpoints" / "baseline" / "ckpt.pt").exists()
+CKPT_ROOT = data_root("checkpoints", PROJECT)
+HAVE_CKPT = (CKPT_ROOT / "baseline" / "ckpt.pt").exists()
 HAVE_CUDA = torch.cuda.is_available()
 NOTEBOOKS = [
     "Dataset_Inspector.ipynb",
@@ -35,7 +38,7 @@ def _baseline_is_factorized():
     global _BASELINE_FACTORIZED
     if _BASELINE_FACTORIZED is None:
         ck = torch.load(
-            PROJECT / "checkpoints" / "baseline" / "ckpt.pt",
+            CKPT_ROOT / "baseline" / "ckpt.pt",
             map_location="cpu",
             weights_only=False,
         )
@@ -91,7 +94,7 @@ def test_one_sample_conditioner_forward():
     from topotex.models.topotex import build_models
 
     ck = torch.load(
-        PROJECT / "checkpoints" / "baseline" / "ckpt.pt",
+        CKPT_ROOT / "baseline" / "ckpt.pt",
         map_location="cuda:0",
         weights_only=False,
     )

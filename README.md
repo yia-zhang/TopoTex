@@ -46,12 +46,19 @@ topotex/     the installable package (docs/code_architecture.md)
 train.py sample.py evaluate.py   thin CLIs over the pipelines
 configs/     topotex_fm_baseline.yaml (frozen 2K) + topotex_fm_10k.yaml
 scripts/     8-GPU wrappers (torchrun train, sharded eval, dataset build)
-notebooks/   Dataset_Inspector / Model_Inspector / Technical_Report / Pipeline_Playground
+notebooks/   Dataset_Inspector / Model_Inspector / Technical_Report
 experiments/ experiment_log.md + fm_100 / fm_2k / fm_10k records
-docs/        architecture / code_architecture / technical_report / protocol
-tests/       pytest suite incl. golden numerical-equivalence gate
-checkpoints/ baseline/ — the final baseline checkpoint (gitignored payload)
+docs/        architecture / code_architecture / technical_report / protocol /
+             workspace_policy (data isolation rules)
+tests/       pytest suite incl. hygiene gates (zero tracked symlinks)
 ```
+
+Persistent data (datasets, checkpoints, runs) lives OUTSIDE the
+repository at roots given by `TOPOTEX_DATASET_ROOT`,
+`TOPOTEX_SOURCE_ROOT`, `TOPOTEX_CHECKPOINT_ROOT`, `TOPOTEX_RUN_ROOT`
+(fallback: the historical project-relative locations). Before any
+merge/checkout into this workspace run
+`python scripts/check_git_tree_safety.py <commit>`.
 
 ## Dataset
 

@@ -131,11 +131,15 @@ def main():
     ap.add_argument("--include-heldout", action="store_true")
     args = ap.parse_args()
     root = Path.cwd()
+    from topotex.paths import data_root
+
     pipe = TopoTexPipeline.from_checkpoint(Path(args.run), "cuda:0")
     ck = pipe.checkpoint
     ids = args.ids.split(",") if args.ids else ck["samples"][: args.n]
     ds = TopoTexDataset(
-        root / ck["config"]["dataset_root"], ids, device="cuda:0"
+        data_root("dataset", root, ck["config"]["dataset_root"]),
+        ids,
+        device="cuda:0",
     )
     out_root = Path(args.run) / "samples"
     for it in ds.items:

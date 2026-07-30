@@ -322,3 +322,27 @@ that are not conclusions.
   isolation, partial-mask zeros, determinism), golden upstream
   equivalence (face features bitwise, `Z_F` <= 2.5e-4), packed/DDP/
   resume/fail-fast smokes — all green pre-promotion.
+
+## Data-loss incident and storage isolation (2026-07-30)
+
+- **incident** An interrupted `git merge --ff-only` checkout (13:37:15 to
+  13:39:14) deleted the gitignored real data directories while writing
+  tracked symlinks from the refactor branch: `checkpoints/` (fm_2k
+  baseline, fm_100 reference, golden capture — unrecoverable outside
+  filesystem snapshots), `dataset/TexVerse_data` (~255 GB),
+  `output/` source layer (9,958 samples) + dataset metadata + 1,071 of
+  9,919 query samples. Root cause: tracked symlinks at
+  directory-pattern-ignored paths; git treats ignored paths as
+  expendable. Full forensics + inventories in the rescue set
+  (`topotex_rescue_2026-07-30`, four SHA-verified copies).
+- **rescued** 8,889 query-sample dirs (uv_queries + meta), the frozen
+  10,032-id → GLB manifest, the 9,419/500 split (seed 20260727), golden
+  reference tensors with per-tensor SHA256. Deterministic rebuild plan
+  recorded; rebuild target is a protected root outside the repository.
+- **hardening** `topotex/paths.py` env-var data roots
+  (TOPOTEX_*_ROOT), permanent hygiene tests (zero tracked symlinks,
+  no reserved data names), and `scripts/check_git_tree_safety.py`
+  preflight required before any merge/checkout into canonical.
+  Validation reran green on a synthetic dataset (loader/train/resume/
+  DDP/sample/evaluate through env roots).
+

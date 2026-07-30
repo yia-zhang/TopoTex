@@ -27,10 +27,12 @@ import torch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 PROJECT = Path(__file__).resolve().parents[1]
-GOLDEN = PROJECT / "checkpoints" / "golden"
+from topotex.paths import data_root  # noqa: E402
+
+GOLDEN = data_root("checkpoints", PROJECT) / "golden"
 HAVE = (
     (GOLDEN / "golden.npz").exists()
-    and (PROJECT / "checkpoints/baseline/ckpt.pt").exists()
+    and (data_root("checkpoints", PROJECT) / "baseline/ckpt.pt").exists()
     and torch.cuda.is_available()
 )
 
@@ -44,7 +46,7 @@ def test_upstream_matches_golden_and_prior_ckpt_fails_fast():
     meta = json.loads((GOLDEN / "golden_meta.json").read_text())
     gold = np.load(GOLDEN / "golden.npz")
     ck = torch.load(
-        PROJECT / "checkpoints/baseline/ckpt.pt",
+        data_root("checkpoints", PROJECT) / "baseline/ckpt.pt",
         map_location="cuda:0",
         weights_only=False,
     )
@@ -52,7 +54,9 @@ def test_upstream_matches_golden_and_prior_ckpt_fails_fast():
     # 1) no silent partial load: the pre-factorized checkpoint must be
     #    rejected loudly by the frozen loading path
     with pytest.raises(RuntimeError):
-        TopoTexModel.from_checkpoint(PROJECT / "checkpoints/baseline")
+        TopoTexModel.from_checkpoint(
+            data_root("checkpoints", PROJECT) / "baseline"
+        )
 
     # 2) the untouched upstream (mesh+views -> Z_F) still reproduces the
     #    golden capture; only decoder.* weights may be absent

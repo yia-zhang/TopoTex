@@ -36,6 +36,7 @@ from topotex.data.dataset import TopoTexDataset
 from topotex.layers.flow import MaskedFlowMatching
 from topotex.layers.topology import build_face_graph
 from topotex.models.topotex import build_models
+from topotex.paths import data_root
 from topotex.utils.distributed import ddp_env
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -210,7 +211,7 @@ def main():
     query_probs = [float(x) for x in cfg["query_probs"]]
     assert abs(sum(query_probs) - 1) < 1e-6
 
-    root = PROJECT_ROOT / cfg["dataset_root"]
+    root = data_root("dataset", PROJECT_ROOT, cfg["dataset_root"])
     if args.ids_file:
         split_bytes = Path(args.ids_file).read_bytes()
         blob = json.loads(split_bytes)
@@ -231,7 +232,7 @@ def main():
         len(ids) * int(cfg["target_mesh_exposures"]) / (group_size * world)
     )
     cfg["steps"] = steps
-    run = PROJECT_ROOT / "runs" / args.run_name
+    run = data_root("runs", PROJECT_ROOT) / args.run_name
     run.mkdir(parents=True, exist_ok=True)
 
     cfg.setdefault("generator", "fm")  # flow matching, the only generator

@@ -33,6 +33,7 @@ from topotex.data.mesh import (
     render_albedo_rebake,
     seam_error,
 )
+from topotex.paths import data_root
 from topotex.pipelines.inference import TopoTexPipeline
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -129,7 +130,9 @@ def main():
         ids = ck["samples"][args.offset : args.offset + args.n]
     ids = ids[args.rank :: args.world_size]
     ds = TopoTexDataset(
-        PROJECT_ROOT / ck["config"]["dataset_root"], ids, device=device
+        data_root("dataset", PROJECT_ROOT, ck["config"]["dataset_root"]),
+        ids,
+        device=device,
     )
 
     gen_times = []

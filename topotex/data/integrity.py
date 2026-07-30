@@ -29,6 +29,8 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+from topotex.paths import data_root
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SCHEMA = "topotex_dataset@1"
 SOURCE_SCHEMA = "topotex_source"
@@ -162,7 +164,7 @@ def check_sample(root, sid, kind, deep, source_root=None):
                     fails.append(f"{sid}: {q} {field} MISMATCH")
         want = meta.get("source_texture_sha256")
         src_tex = (
-            (source_root or (PROJECT_ROOT / "output" / "topotex_source"))
+            (source_root or data_root("source", PROJECT_ROOT))
             / "samples"
             / sid
             / "gt_texture.png"

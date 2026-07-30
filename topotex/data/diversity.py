@@ -19,6 +19,8 @@ from pathlib import Path
 
 import numpy as np
 
+from topotex.paths import resolve_cli_root
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -116,7 +118,9 @@ def main():
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
-    root = (PROJECT_ROOT / args.dataset).resolve()
+    root = resolve_cli_root(
+        "dataset", PROJECT_ROOT, args.dataset, "output/topotex_dataset"
+    ).resolve()
     out_path = Path(args.out) if args.out else root / "dataset_diversity.json"
     ids = [json.loads(l)["sample_id"] for l in open(root / "manifest.jsonl")]
     if args.limit:

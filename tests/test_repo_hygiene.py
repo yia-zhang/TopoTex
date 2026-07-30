@@ -172,3 +172,44 @@ def test_no_dangling_imports():
         "evaluate",
     ):
         importlib.import_module(mod)
+
+
+def test_no_tracked_symlinks():
+    """Mode-120000 entries once replaced real data directories during a
+    checkout (2026-07-30 incident): the tree must track ZERO symlinks."""
+    out = subprocess.run(
+        ["git", "ls-tree", "-r", "HEAD"],
+        cwd=PROJECT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    links = [l for l in out.splitlines() if l.startswith("120000")]
+    assert not links, f"tracked symlinks in HEAD: {links[:5]}"
+    staged = subprocess.run(
+        ["git", "ls-files", "-s"],
+        cwd=PROJECT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    staged_links = [l for l in staged.splitlines() if l.startswith("120000")]
+    assert not staged_links, f"symlinks in the index: {staged_links[:5]}"
+
+
+def test_no_reserved_data_paths_tracked():
+    """Reserved persistent-data names must never be tracked at the repo
+    root (any mode): a tracked entry at such a path collides with the
+    real data directory on checkout."""
+    from topotex.paths import RESERVED_DATA_NAMES
+
+    out = subprocess.run(
+        ["git", "ls-tree", "HEAD"],
+        cwd=PROJECT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    top = {l.split("\t")[1] for l in out.splitlines() if "\t" in l}
+    bad = sorted(top & set(RESERVED_DATA_NAMES))
+    assert not bad, f"reserved data names tracked at repo root: {bad}"
