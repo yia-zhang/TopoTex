@@ -50,9 +50,12 @@ class SkipSample(Exception):
     """Asset fails the gate; .args[0] is the one-line reason."""
 
 
-def extract_glb(glb_path):
+def extract_glb(glb_path, uv_tol=1e-3):
     """GLB -> (vertices f32 [V,3], faces i32 [F,3], uv f32 [V,2] top-down v,
-    texture u8 [T,T,3]). Raises SkipSample with a reason otherwise."""
+    texture u8 [T,T,3]). Raises SkipSample with a reason otherwise.
+    uv_tol: accepted UV overshoot beyond [0,1] before clipping — the strict
+    dataset default rejects tiling textures; interactive callers may relax
+    it for slight boundary overshoot."""
     import trimesh
     scene = trimesh.load(str(glb_path), process=False)
     # (transform, mesh) per scene-graph instance so geometry matches the GLB
@@ -100,7 +103,7 @@ def extract_glb(glb_path):
         raise SkipSample("invalid per-vertex uv")
     uv = uv.copy()
     uv[:, 1] = 1.0 - uv[:, 1]         # GLB v-up -> our top-down texture rows
-    if uv.min() < -1e-3 or uv.max() > 1 + 1e-3:
+    if uv.min() < -uv_tol or uv.max() > 1 + uv_tol:
         raise SkipSample("uv outside [0,1] (tiling texture)")
     return (vertices, faces.astype(np.int32), np.clip(uv, 0, 1),
             tex.astype(np.uint8))
