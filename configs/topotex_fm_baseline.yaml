@@ -1,8 +1,8 @@
 # TOPOTEX FM baseline — FROZEN recipe (do not modify; copy for forks).
 # Generator: Flow Matching / rectified flow (velocity net = the patchified
-#            transformer backbone, unchanged). Masked-diffusion schedule
-#            remains loadable only for the previous reference checkpoint.
-# Surface Conditioner: unchanged. UV Query design: unchanged.
+#            transformer backbone) — the ONLY generator; no other schedule.
+# Surface Conditioner: unchanged upstream. UV Query: factorized dense
+#            encoder (Dq = cond_dim/4).
 # Training: bf16 on the velocity net + packed face-graph batch (K=4,
 #           face-count bucket sampler) + CPU-resident data past 300 meshes.
 # Model: Surface Conditioner (face tokenizer + face-view cross attention +
@@ -10,9 +10,6 @@
 # Dataset: canonical / alternative(xatlas) / partial-surface queries
 #          (+ held-out smart-uv family, eval only).
 # Query sampling: query_probs below (canonical / alternative / partial).
-# Generator: rectified flow (fm) is the primary texture generator; the
-#            masked-diffusion schedule remains loadable for the previous
-#            reference checkpoint.
 # Efficiency: packed face-graph groups (bucketed by face count) + bf16 on
 #             the velocity net — measured +54% meshes/sec vs single-mesh.
 # Do not edit for research forks — copy.

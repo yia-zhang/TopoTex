@@ -41,7 +41,7 @@ def test_model_forward_and_gradient_flow():
     ds = TopoTexDataset(DATASET, ids, device="cuda:0")
     it = ds[0]
     conditioner, dit = build_models(cfg, "cuda:0")
-    diffusion = MaskedFlowMatching(T=1000, device="cuda:0")
+    flow = MaskedFlowMatching(T=1000, device="cuda:0")
     q = it["uv_queries"][0]
     mask = q["valid_mask"].float()[None, None]
     x0 = (q["gt_texture"][None] * 2 - 1) * mask
@@ -61,7 +61,7 @@ def test_model_forward_and_gradient_flow():
             with_rgb=True,
         )
         loss = (
-            diffusion.loss(dit, x0, out["uv_condition"], mask)
+            flow.loss(dit, x0, out["uv_condition"], mask)
             + 0.1
             * (out["uv_rgb"][0] - q["gt_texture"])
             .abs()[:, q["valid_mask"]]

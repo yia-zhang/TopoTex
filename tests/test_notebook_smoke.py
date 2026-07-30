@@ -21,7 +21,6 @@ NOTEBOOKS = [
     "Dataset_Inspector.ipynb",
     "Model_Inspector.ipynb",
     "Technical_Report.ipynb",
-    "Pipeline_Playground.ipynb",
 ]
 
 

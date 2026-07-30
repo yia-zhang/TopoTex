@@ -295,3 +295,30 @@ that are not conclusions.
   builder — the same code the 10K build uses; partial-axis metrics on
   those meshes are therefore not comparable to pre-rebuild numbers.
 - **status** current pipeline + next steps in `docs/current_status.md`.
+
+## Factorized dense UV query encoder (promoted without A/B)
+
+- **date** 2026-07-30
+- **decision** The factorized dense UV query encoder is the ONLY official
+  implementation, promoted directly by project decision — the planned
+  controlled A/B against the concat-bottleneck encoder was cancelled
+  before any GPU time was spent on it; no numbers exist and none should
+  be quoted. Rationale: the fixed 32-dim texel bottleneck is structurally
+  too narrow for the dim384 mainline (Dq scales as cond_dim/4 = 96), and
+  the 10K run is the priority.
+- **architecture** face_address = Linear(D, Dq) applied once to `Z_F`
+  then gathered per texel; bary_address = MLP(27, Dq, Dq) over the
+  Fourier-encoded barycentrics (valid texels only);
+  texel = LayerNorm(face + bary); learned background embedding (never
+  indexes `Z_F`); Conv2d(Dq, D, 8, 8) patch embedding; Global UV Query
+  Attention (depth 4, heads 8, K=V=`Z_F`) and the output head unchanged.
+  dim384 decoder 11.55M params (was 9.95M).
+- **compatibility** Concat-bottleneck checkpoints (fm_100/fm_2k
+  references, scaling-study runs) do NOT load into the new architecture —
+  fail-fast, no migration, no silent partial load. Their numbers remain
+  valid history in this log; the 10K run trains from random init.
+- **verification** contract tests (shape Dq 64/96, face-permutation
+  equivariance, barycentric sensitivity + gradient flow, background
+  isolation, partial-mask zeros, determinism), golden upstream
+  equivalence (face features bitwise, `Z_F` <= 2.5e-4), packed/DDP/
+  resume/fail-fast smokes — all green pre-promotion.

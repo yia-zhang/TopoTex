@@ -194,13 +194,6 @@ def main():
         help="json file with {'train': [...]} or a plain list — "
         "overrides manifest ordering (mesh-level splits)",
     )
-    ap.add_argument(
-        "--generator",
-        default=None,
-        choices=["fm"],
-        help="texture generator schedule (flow matching is the "
-        "only generator); recorded in the checkpoint",
-    )
     args = ap.parse_args()
     cfg = yaml.safe_load(open(args.config))
     if args.seed is not None:
@@ -219,8 +212,12 @@ def main():
 
     root = PROJECT_ROOT / cfg["dataset_root"]
     if args.ids_file:
-        blob = json.loads(Path(args.ids_file).read_text())
+        split_bytes = Path(args.ids_file).read_bytes()
+        blob = json.loads(split_bytes)
         ids = blob["train"] if isinstance(blob, dict) else blob
+        # split provenance: stamped into every checkpoint config
+        cfg["split_file"] = str(args.ids_file)
+        cfg["split_sha256"] = hashlib.sha256(split_bytes).hexdigest()
     else:
         ids = [
             json.loads(l)["sample_id"] for l in open(root / "manifest.jsonl")
@@ -237,9 +234,7 @@ def main():
     run = PROJECT_ROOT / "runs" / args.run_name
     run.mkdir(parents=True, exist_ok=True)
 
-    if args.generator is not None:
-        cfg["generator"] = args.generator
-    cfg.setdefault("generator", "fm")
+    cfg.setdefault("generator", "fm")  # flow matching, the only generator
     # packed mode stores data on CPU past 300 meshes (moved per step) and
     # skips per-item graphs (group graphs are packed at startup instead).
     # Under DDP each rank owns a disjoint shard of the bucketed groups and
@@ -266,7 +261,7 @@ def main():
             f"uv query encoder: factorized_dense "
             f"Dq={cfg['uv_texel_dim']} (D={cfg['cond_dim']})"
         )
-    diffusion = MaskedFlowMatching(T=int(cfg["T"]), device=device)
+    flow = MaskedFlowMatching(T=int(cfg["T"]), device=device)
     groups = (
         build_groups(ds, group_size, device, topo_pe=conditioner.topo_pe)
         if group_size > 1
@@ -275,7 +270,7 @@ def main():
     step_mod = PackedLoss(
         conditioner,
         dit,
-        diffusion,
+        flow,
         float(cfg["aux_rgb_weight"]),
         int(cfg["noise_batch"]),
         cfg.get("precision") == "bf16",
@@ -417,14 +412,12 @@ def main():
                 / 255
             )
             B = int(cfg["noise_batch"]) * len(queries)
-            t = torch.randint(
-                1, diffusion.T + 1, (B,), device=device, generator=g
-            )
+            t = torch.randint(1, flow.T + 1, (B,), device=device, generator=g)
             n_high = int(round(B * t_high_frac))
             if n_high:
                 t[:n_high] = torch.randint(
                     t_high_min,
-                    diffusion.T + 1,
+                    flow.T + 1,
                     (n_high,),
                     device=device,
                     generator=g,
@@ -451,20 +444,18 @@ def main():
             cond = out["uv_condition"]
             mask = q["valid_mask"].float()[None, None]
             x0 = (q["gt_texture"][None] * 2 - 1) * mask
-            t = torch.randint(
-                1, diffusion.T + 1, (bs,), device=device, generator=g
-            )
+            t = torch.randint(1, flow.T + 1, (bs,), device=device, generator=g)
             n_high = int(round(bs * t_high_frac))
             if n_high:
                 t[:n_high] = torch.randint(
                     t_high_min,
-                    diffusion.T + 1,
+                    flow.T + 1,
                     (n_high,),
                     device=device,
                     generator=g,
                 )
             with torch.autocast("cuda", torch.bfloat16, enabled=use_bf16):
-                loss_diff = diffusion.loss(
+                loss_diff = flow.loss(
                     dit,
                     x0.expand(bs, -1, -1, -1),
                     cond.expand(bs, -1, -1, -1),

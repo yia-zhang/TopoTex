@@ -27,8 +27,7 @@ single parameterization).
 4. **Texture generation.** Rectified flow: the patchified transformer
    predicts a velocity field over `x_tau = (1-tau)·x0 + tau·eps` (noise and
    loss only inside the valid mask); a 50-step Euler ODE integrates from
-   noise to texture. The masked-diffusion schedule is retained only as the
-   previous reference generator.
+   noise to texture.
 
 ## Dataset
 

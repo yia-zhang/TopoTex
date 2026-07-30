@@ -19,9 +19,12 @@ Image + Mesh
   → Texture
 ```
 
-Flow matching is the **only** generator; the masked-diffusion schedule and
-its reference checkpoint were removed in the consolidation (code remains in
-git history, numbers in `experiments/experiment_log.md`).
+Flow matching is the **only** generator (no other schedule exists in the
+code; history lives in git and `experiments/experiment_log.md`). The UV
+query encoder is the factorized dense implementation (face-address
+projection + barycentric MLP + Conv2d patch embedding, Dq = cond_dim/4);
+checkpoints from the concat-bottleneck encoder do not load — fail-fast,
+no migration.
 
 ## Frozen configuration
 
