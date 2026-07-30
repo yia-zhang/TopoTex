@@ -1,0 +1,28 @@
+{
+ "experiment": "fm_10k",
+ "commit": "a573484",
+ "config": {
+  "file": "configs/topotex_fm_10k.yaml",
+  "sha256": "c872d0c8a60f8910f4c2795ff4d8ed5392ba7b7e01aab8ac9e074f79b813591d",
+  "note": "OFFICIAL 10K config: cond_dim 384 (scaling-study decision); topology depth and generator hidden unchanged; packed K=4, bf16, DDP world 8"
+ },
+ "dataset": {
+  "root": "output/topotex_dataset",
+  "n_meshes": "~9500 train",
+  "split": "experiments/protocol/scaling_10k_split.json (500 unseen-mesh validation)",
+  "manifest_sha256": "pending (10K build in progress)"
+ },
+ "evaluation_axes": [
+  "canonical UV",
+  "alternative UV",
+  "held-out UV",
+  "partial query",
+  "seam consistency",
+  "unseen mesh validation"
+ ],
+ "gates": "checkpoints at 10% / 50% / 100% (gallery + unseen-mesh eval + query consistency)",
+ "metrics": null,
+ "checkpoint_path": "runs/fm_10k/ckpt.pt",
+ "status": "pending (source build ~32%)",
+ "recorded_at": "2026-07-30T00:49:42"
+}
