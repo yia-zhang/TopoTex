@@ -188,6 +188,13 @@ def main():
     ap.add_argument("--run-name", required=True)
     ap.add_argument("--steps", type=int, default=None)
     ap.add_argument("--seed", type=int, default=None)
+    ap.add_argument(
+        "--lr",
+        type=float,
+        default=None,
+        help="override config lr (collapse-recovery runs); recorded in "
+        "the checkpoint config",
+    )
     ap.add_argument("--resume", action="store_true")
     ap.add_argument(
         "--ids-file",
@@ -199,6 +206,8 @@ def main():
     cfg = yaml.safe_load(open(args.config))
     if args.seed is not None:
         cfg["seed"] = args.seed
+    if args.lr is not None:
+        cfg["lr"] = args.lr
     rank, world, local_rank = ddp_env()
     if world > 1:
         dist.init_process_group("nccl")
@@ -344,6 +353,7 @@ def main():
     g_grp = torch.Generator().manual_seed(seed + 7)
     start_step = 0
     loss_ema = None
+    n_spike_skips = 0
     if args.resume and (run / "ckpt.pt").exists():
         ck = torch.load(
             run / "ckpt.pt", map_location=device, weights_only=False
@@ -493,7 +503,25 @@ def main():
         loss.backward()
         t_p3 = _tick()
         torch.nn.utils.clip_grad_norm_(params, 1.0)
-        opt.step()
+        # collapse guard: recurrent divergence was observed despite grad
+        # clipping — reject the update on pathological loss spikes so a
+        # single bad step cannot poison optimizer state
+        if (
+            loss_ema is not None
+            and step > warmup
+            and float(loss) > max(4.0 * loss_ema, 0.5)
+        ):
+            n_spike_skips += 1
+            if is_main:
+                print(
+                    f"[guard] step {step}: loss {float(loss):.3f} > "
+                    f"4x ema {loss_ema:.3f} — update skipped "
+                    f"({n_spike_skips} total)",
+                    flush=True,
+                )
+            opt.zero_grad(set_to_none=True)
+        else:
+            opt.step()
         t_p4 = _tick()
 
         l = float(loss)
