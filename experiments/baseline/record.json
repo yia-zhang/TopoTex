@@ -1,0 +1,45 @@
+{
+ "experiment": "fm_baseline_dim384_factorized",
+ "status": "training",
+ "commit": "8150ea1",
+ "config_sha256": "06f62875768c08c687c8abf5b4132b15375a6b1affc4c3f134ea2536a0474df3",
+ "dataset": {
+  "objects": 4590,
+  "manifest_sha256": "a6aef67139d04a59eb52a2f11eb74b991815cc265e2f06f445d4647f01f12544"
+ },
+ "split": {
+  "file": "object_split.json",
+  "sha256": "21972f1a7a13e71b8baca257f70d524906fc8d39808a2bf6a9f66996cf63017f",
+  "train": 4090,
+  "unseen_test": 500,
+  "seed": 20260727
+ },
+ "feasible_train_set": {
+  "file": "runs/acceptance/train_ids_feasible.json",
+  "sha256": "a11adb2cf24716d29e35c904da76f45c77b5b0fcfc1da80344002cf12b13f523",
+  "original_train_count": 4090,
+  "feasible_train_count": 4088,
+  "excluded": [
+   {
+    "sample_id": "0caa8be2dd514b1c94ef29ff6f8f213e",
+    "num_faces": 83809,
+    "reason": "face-count filter escapee; training activations exceed 80GB (design envelope faces<4096)"
+   },
+   {
+    "sample_id": "11f046f5e7da40058409a45c5d684ed7",
+    "num_faces": 255727,
+    "reason": "face-count filter escapee; training activations exceed 80GB (design envelope faces<4096)"
+   }
+  ],
+  "note": "excluded ids remain train-split members and never enter evaluation"
+ },
+ "training": {
+  "steps_total": 255500,
+  "global_meshes_per_step": 32,
+  "gpus": 8,
+  "precision": "bf16",
+  "packed_K": 4,
+  "init": "random"
+ },
+ "metrics": "pending final evaluation (500 unseen objects)"
+}
