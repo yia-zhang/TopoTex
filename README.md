@@ -34,7 +34,7 @@ parameterizations agree when rebaked.
 ## Repository
 
 ```
-topotex/     the installable package (docs/code_architecture.md)
+topotex/     the installable package (docs/architecture.md)
   config.py    typed configs (YAML validated at load)
   data/        schema+contracts, loader, mesh/uv/multiview, offline builder,
                integrity gate, diversity monitors
@@ -48,8 +48,7 @@ configs/     topotex_fm_baseline.yaml (frozen 2K) + topotex_fm_10k.yaml
 scripts/     8-GPU wrappers (torchrun train, sharded eval, dataset build)
 notebooks/   Dataset_Inspector / Model_Inspector / Technical_Report
 experiments/ experiment_log.md + fm_100 / fm_2k / fm_10k records
-docs/        architecture / code_architecture / technical_report / protocol /
-             workspace_policy (data isolation rules)
+docs/        architecture / data_layout / experiment_protocol / safety
 tests/       pytest suite incl. hygiene gates (zero tracked symlinks)
 ```
 
@@ -173,7 +172,7 @@ at group 4); numbers in `experiments/experiment_log.md`.
 ## Docs & history
 
 - `docs/architecture.md` — module-level architecture reference.
-- `docs/technical_report.md` — method + frozen baseline numbers.
+- `notebooks/Technical_Report.ipynb` — method walkthrough on live tensors.
 - `experiments/experiment_log.md` — every past experiment with date, goal,
   config, result, conclusion, and commit. Code for each entry lives in git
   history at the referenced commit.

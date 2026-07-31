@@ -76,6 +76,10 @@ def test_no_banned_names():
     for f in _tracked_files():
         if f.name == Path(__file__).name:
             continue
+        # frozen experiment records quote external artifact/run names
+        # verbatim; the naming rule targets the source tree, not data
+        if f.suffix == ".json" and "experiments/" in str(f):
+            continue
         text = _scan_text(f)
         for b in BANNED:
             if b in WORDY:

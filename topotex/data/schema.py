@@ -99,8 +99,12 @@ class FaceGraph(_Record):
 class UVQueryBatch(_Record):
     """One UV parameterization as a (face_id, barycentric) address map.
 
-    face_id:     int64   [H, W]  (-1 = background)
-    barycentric: float32 [3, H, W]
+    All tensors share one device (loader-chosen); no batch dim — one
+    query per instance, batching = packed face-graph groups upstream.
+
+    face_id:     int64   [H, W]  (-1 = background; valid == face_id >= 0)
+    barycentric: float32 [3, H, W] (valid texels sum to 1 within 5e-3;
+                 0 on background)
     valid_mask:  bool    [H, W]
     gt_texture:  float32 [3, H, W] in [0,1] (None at pure inference)
     uv_vertices: float32 np [Vuv, 2] top-down v (full layout — rebake-safe)
@@ -124,8 +128,10 @@ class TopoTexBatch(_Record):
 
     reference_image: uint8 [3, 512, 512]
     mv_images:       uint8 [Nv, 3, image_size, image_size]
-    uv_queries:      TRAIN queries (canonical / alternative / partial)
-    test_uv_queries: held-out family — EVALUATION ONLY, never trained
+    uv_queries:      native / xatlas / partial queries (uv_000/001/002)
+    test_uv_queries: blender_smart (uv_test) — with 4-way query_probs it
+                     participates in TRAINING as layout augmentation;
+                     generalization is measured on unseen OBJECTS
     """
 
     sample_id: str

@@ -245,6 +245,11 @@ def main():
         assert group_size > 1, "DDP path uses the packed-group trainer"
         gid_all = bucket_group_ids(root, ids, group_size)
         my_gids = gid_all[rank::world]
+        assert my_gids, (
+            f"rank {rank}: no packed groups — need at least "
+            f"world_size*group_size (= {world * group_size}) samples, "
+            f"got {len(ids)}"
+        )
         my_ids = [s for g in my_gids for s in g]
     else:
         my_gids, my_ids = None, ids

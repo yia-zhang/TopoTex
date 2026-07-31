@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Data-path resolution: persistent data lives OUTSIDE the repository.
 
-The 2026-07-30 incident (see docs/workspace_policy.md and the forensic
+The 2026-07-30 incident (see docs/safety.md and the forensic
 report in the rescue set) was caused by data directories living at
 git-visible paths. Storage roots are therefore resolved here, never via
 symlinks inside the repository:
