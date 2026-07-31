@@ -164,3 +164,34 @@ def test_rigid_transform_token_consistency():
     Vt = 0.31 * (V @ R.T) + torch.tensor([-2.0, 7.0, 0.5])
     t1 = _tokens_of(enc, Vt, F)
     assert torch.allclose(t0, t1, atol=1e-3), (t0 - t1).abs().max()
+
+
+def test_random_walk_pe_matches_dense_power_chain():
+    """The blocked-sparse RWPE must equal the textbook dense power chain
+    (the dense form OOMs on large packed groups; the math is frozen)."""
+    import torch
+
+    from topotex.layers.topology import random_walk_pe
+
+    def dense_ref(edges, n, k):
+        A = torch.zeros(n, n)
+        if len(edges):
+            A[edges[:, 0], edges[:, 1]] = 1.0
+        P = A / A.sum(1, keepdim=True).clamp(min=1.0)
+        out, M = [], torch.eye(n)
+        for _ in range(k):
+            M = M @ P
+            out.append(torch.diagonal(M))
+        return torch.stack(out, dim=1)
+
+    for n, ne in ((7, 12), (500, 1400)):
+        g = torch.Generator().manual_seed(n)
+        e = torch.randint(0, n, (ne, 2), generator=g)
+        d = (
+            (dense_ref(e, n, 16) - random_walk_pe(e, n, 16, "cpu", chunk=61))
+            .abs()
+            .max()
+        )
+        assert d < 1e-5, float(d)
+    empty = random_walk_pe(torch.zeros((0, 2), dtype=torch.long), 5, 16)
+    assert empty.shape == (5, 16) and (empty == 0).all()

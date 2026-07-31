@@ -85,24 +85,44 @@ def build_face_graph(vertices, faces):
     )
 
 
-def _adjacency(edges, num_faces, device):
-    A = torch.zeros(num_faces, num_faces, device=device)
+def random_walk_pe(edges, num_faces, k=16, device="cpu", chunk=4096):
+    """RWSE: diagonal of P^t for t=1..k, P = D^-1 A. [F,k].
+
+    Computed in column blocks of P^t via sparse matmuls so memory stays
+    O(F * chunk) — the dense [F,F] power chain OOMs on packed groups
+    with >~16k faces (a handful of source GLBs triangulate far above
+    the nominal face budget). Same quantity as the dense chain up to
+    float association order.
+    """
     if len(edges):
-        A[edges[:, 0], edges[:, 1]] = 1.0
-    return A
-
-
-def random_walk_pe(edges, num_faces, k=16, device="cpu"):
-    """RWSE: diagonal of P^t for t=1..k, P = D^-1 A. [F,k]."""
-    A = _adjacency(edges, num_faces, device)
-    deg = A.sum(1, keepdim=True).clamp(min=1.0)
-    P = A / deg
-    out = []
-    M = torch.eye(num_faces, device=device)
-    for _ in range(k):
-        M = M @ P
-        out.append(torch.diagonal(M))
-    return torch.stack(out, dim=1)
+        idx = edges.t().long()
+        A = torch.sparse_coo_tensor(
+            idx,
+            torch.ones(idx.shape[1], device=device),
+            (num_faces, num_faces),
+        ).coalesce()
+        # duplicate index pairs must count once (dense used assignment)
+        A = torch.sparse_coo_tensor(
+            A.indices(), A.values().clamp(max=1.0), A.shape
+        ).coalesce()
+        deg = torch.sparse.sum(A, dim=1).to_dense().clamp(min=1.0)[:, None]
+    else:
+        A = None
+        deg = torch.ones(num_faces, 1, device=device)
+    out = torch.zeros(num_faces, k, device=device)
+    for s in range(0, num_faces, chunk):
+        e = min(s + chunk, num_faces)
+        C = torch.zeros(num_faces, e - s, device=device)
+        C[
+            torch.arange(s, e, device=device),
+            torch.arange(e - s, device=device),
+        ] = 1.0
+        rows = torch.arange(s, e, device=device)
+        cols = torch.arange(e - s, device=device)
+        for t in range(k):
+            C = (torch.sparse.mm(A, C) if A is not None else C * 0) / deg
+            out[rows, t] = C[rows, cols]
+    return out
 
 
 class TopologyPE(nn.Module):
