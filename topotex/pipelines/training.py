@@ -209,7 +209,8 @@ def main():
     torch.manual_seed(seed)
     np.random.seed(seed)
     query_probs = [float(x) for x in cfg["query_probs"]]
-    assert abs(sum(query_probs) - 1) < 1e-6
+    assert len(query_probs) in (3, 4) and min(query_probs) >= 0
+    query_probs = [x / sum(query_probs) for x in query_probs]
 
     root = data_root("dataset", PROJECT_ROOT, cfg["dataset_root"])
     if args.ids_file:
@@ -376,6 +377,13 @@ def main():
             pg["lr"] = float(cfg["lr"]) * wu * cos
 
         def pick_query(item):
+            # 3 probs: train queries only (uv_000/001/002).
+            # 4 probs: + blender_smart (uv_test) as a training layout —
+            # UV layout variation is augmentation; generalization is
+            # measured on unseen OBJECTS, not held-out layouts.
+            qs = item["uv_queries"]
+            if len(query_probs) == 4:
+                qs = list(qs) + list(item["test_uv_queries"])
             r = float(torch.rand(1, generator=g_idx))
             acc, qi = 0.0, len(query_probs) - 1
             for j, pj in enumerate(query_probs):
@@ -383,7 +391,7 @@ def main():
                 if r < acc:
                     qi = j
                     break
-            return item["uv_queries"][qi]
+            return qs[qi]
 
         do_profile = step % int(cfg["log_every"]) == 0 or step == 1
 

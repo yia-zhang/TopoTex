@@ -22,6 +22,16 @@ import torch
 DATASET_SCHEMA = "topotex_dataset@1"
 SOURCE_SCHEMA = "topotex_source"
 RES = 256
+#: semantic contract for the on-disk query dir names (no renames):
+#: Query = UV layout x resolution x surface mask. `partial` is a surface
+#: mask over the NATIVE layout, not an unwrap family.
+QUERY_SEMANTICS = {
+    "uv_000": {"layout": "native", "mask": "full"},
+    "uv_001": {"layout": "xatlas", "mask": "full"},
+    "uv_002": {"layout": "native", "mask": "connected_partial"},
+    "uv_test": {"layout": "blender_smart", "mask": "full"},
+}
+
 QUERIES = ("uv_000", "uv_001", "uv_002", "uv_test")
 SOURCE_FILES = (
     "reference.png",

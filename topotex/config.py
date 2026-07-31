@@ -26,13 +26,19 @@ class DataConfig:
     """Dataset location and query sampling."""
 
     dataset_root: str = "output/topotex_dataset"
-    #: draw probabilities for (canonical, alternative, partial) queries
-    query_probs: tuple[float, float, float] = (0.5, 0.3, 0.2)
+    #: draw probabilities over (native, xatlas, partial[, blender_smart])
+    #: queries — normalized at training time; 3- or 4-tuple
+    query_probs: tuple[float, ...] = (0.5, 0.3, 0.2)
 
     def validate(self) -> None:
-        if abs(sum(self.query_probs) - 1.0) > 1e-6:
+        if len(self.query_probs) not in (3, 4) or min(self.query_probs) < 0:
             raise ValueError(
-                f"query_probs must sum to 1, got {self.query_probs}"
+                f"query_probs must be 3 or 4 nonnegative values, "
+                f"got {self.query_probs}"
+            )
+        if abs(sum(self.query_probs) - 1.0) > 1e-3:
+            raise ValueError(
+                f"query_probs must sum to ~1, got {self.query_probs}"
             )
 
 

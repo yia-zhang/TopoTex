@@ -38,8 +38,14 @@ def make_dataset(root, n=2):
         Image.fromarray(np.zeros((8, 8, 3), np.uint8)).save(
             d / "reference.png"
         )
-        for f in ("mv.safetensors", "mesh.safetensors"):
-            save_file({"x": np.zeros(3, np.float32)}, str(d / f))
+        save_file({"x": np.zeros(3, np.float32)}, str(d / "mv.safetensors"))
+        save_file(
+            {
+                "vertices": np.zeros((3, 3), np.float32),
+                "faces": np.zeros((1, 3), np.int64),
+            },
+            str(d / "mesh.safetensors"),
+        )
         queries = []
         for q in QUERIES:
             qd = d / "uv_queries" / q

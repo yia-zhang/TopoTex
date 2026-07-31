@@ -15,7 +15,9 @@
 #        topology transformer) + Global UV Query Attention decoder + MiniDiT.
 # Dataset: canonical / alternative(xatlas) / partial-surface queries
 #          (+ held-out smart-uv family, eval only).
-# Query sampling: query_probs below (canonical / alternative / partial).
+# Query sampling: query_probs over (native/full, xatlas/full,
+#   native/connected_partial, blender_smart/full) — all UV layouts are
+#   training augmentation; generalization = unseen OBJECTS (object split).
 # Efficiency: packed face-graph groups (bucketed by face count) + bf16 on
 #             the velocity net — measured +54% meshes/sec vs single-mesh.
 # Do not edit for research forks — copy.
@@ -51,7 +53,7 @@ t_high_min: 700
 aux_rgb_weight: 0.1
 log_every: 200
 ckpt_every: 2000
-query_probs: [0.5, 0.3, 0.2]
+query_probs: [0.26667, 0.26667, 0.2, 0.26666]
 generator: fm
 group_size: 4
 precision: bf16

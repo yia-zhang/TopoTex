@@ -1,0 +1,97 @@
+{
+ "task": "dataset+model acceptance (object-level 4.6K baseline)",
+ "date": "2026-07-31",
+ "dataset": {
+  "objects": 4590,
+  "train": 4090,
+  "unseen_test": 500,
+  "manifest_sha256": "a6aef67139d04a59",
+  "split_sha256": "21972f1a7a13e71b",
+  "deep_gate": "4590/4590 pass, 0 failures",
+  "inspector_html": "runs/dataset_acceptance/Dataset_Inspector.html",
+  "consistency_checks": "10/10 PASS on inspected sample"
+ },
+ "gpu_health": {
+  "healthy": [
+   0,
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7
+  ],
+  "gpu6": "recovered (1980MHz under load; was 480MHz thermal throttle)",
+  "file": "runs/acceptance/gpu_health.json"
+ },
+ "overfit1": {
+  "run": "fm_accept_overfit1",
+  "sample": "066ba0b3956e422da37693b7fc48715f (median 1444 faces)",
+  "loss_ema": [
+   1.4653,
+   0.0062
+  ],
+  "steps": 10000,
+  "early_stop": true,
+  "milestone_psnr_native_db": {
+   "early@2000": 33.22,
+   "final@10000": 44.04
+  },
+  "uv_psnr_db": {
+   "native": 44.04,
+   "xatlas": 44.13,
+   "blender_smart": 43.41,
+   "partial": 43.67
+  },
+  "cross_layout_consistency_db": 34.44,
+  "seam": {
+   "generated": 0.0999,
+   "gt_floor": 0.0983,
+   "ratio": 1.02
+  },
+  "checks": "no collapse / aligned / mask ok / rebake ok / partial outside zero"
+ },
+ "pilot10": {
+  "run": "fm_accept_pilot10",
+  "steps": "600->800 resume",
+  "checks": "packed K=4, 4-way sampling incl blender_smart, resume ok, no NaN, eval+seam computable, no test leakage",
+  "quick_inspect": "2 train + 2 test sane (probe mask-convention footnote in report)"
+ },
+ "smoke100": {
+  "run": "fm_accept_smoke100",
+  "gpus": 8,
+  "steps": "500->resume->1000",
+  "median_util_pct": 96.0,
+  "mesh_exposures_per_s": 46.96,
+  "peak_vram_gb": 31.9,
+  "forward_ms": 50,
+  "backward_comm_ms": 203,
+  "dataloader_ms": 0,
+  "provenance": "world 8, split_sha stamped, no leakage, no duplicate exposure",
+  "preview": "runs/acceptance/smoke100_preview_4train_4test.png"
+ },
+ "notebooks": {
+  "Dataset_Inspector": "8 cells, 0 errors",
+  "Model_Inspector": "7 cells, 0 errors, 9 shape asserts PASS",
+  "Technical_Report": "4 cells, 0 errors",
+  "html_dir": [
+   "runs/dataset_acceptance",
+   "runs/model_acceptance"
+  ]
+ },
+ "bugs_fixed": [
+  "queries CLI legacy default --limit 265 caused truncated finalize (operational: always pass explicit limit)",
+  "container reset wiped libX11 stack + git binary (reinstalled; env risk noted)",
+  "FM trajectory tau snapshots not on Euler grid (capture-on-crossing)",
+  "integrity unit-test fixture lacked mesh faces key (schema-correct fixture)"
+ ],
+ "static": "ruff clean; pytest 54 passed / 6 skipped (lost-checkpoint skips); tree-safety preflight OK",
+ "projected_full_training": {
+  "run": "fm_baseline_dim384_factorized",
+  "total_steps": 255625,
+  "throughput_mesh_s": 46.96,
+  "eta_hours": 48.4
+ },
+ "decision": "READY_FOR_FULL_TRAINING"
+}
