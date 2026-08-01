@@ -1,0 +1,104 @@
+{
+ "name": "oa_prototype",
+ "date": "2026-08-01",
+ "question": "Can canonical mesh + stochastic rendered observations replace expensive generated multi-view supervision?",
+ "dataset": {
+  "source": "Objaverse-OA (Louischong/Objaverse-OA, ODC-BY)",
+  "n_candidates": 500,
+  "n_gate_pass": 117,
+  "n_selected": 80,
+  "selection_rule": "gate pass AND num_faces<=32768 (fm_baseline feasibility bound), ascending face count",
+  "face_count_range": [
+   12,
+   24682
+  ],
+  "views": "6 stochastic canonical-frame renders/object (az U[0,360), el U[-10,50], seed 20260802); camera metadata debug-only",
+  "queries": [
+   "native",
+   "xatlas",
+   "connected_partial"
+  ],
+  "manifest_sha256_canonical": "712be3b6bcdf8fa9fadafe2641857c16a213f41cb326adc5ab64aa0afac8e28f",
+  "manifest_sha256_randrot": "712be3b6bcdf8fa9fadafe2641857c16a213f41cb326adc5ab64aa0afac8e28f",
+  "selected_ids_sha256": "2894599563c18c77e1537499d20bef3a1211a2a3a67892c90ec6f7a10640ab94",
+  "selection_note": "500 candidates -> 117 gate-pass -> 80 within face<=32768 (proven-feasible bound); N=100 target documented deviation"
+ },
+ "code_commit": "d4093bb (official main ddb8591)",
+ "arms": {
+  "oa_overfit1_single": {
+   "steps": 20000,
+   "object": "c997a309c76742eda8db7a27052ede6e (fishing_rod, 2580 faces)",
+   "metrics": {
+    "final_ema": 0.0024,
+    "native": 48.99,
+    "xatlas": 48.07,
+    "partial": 49.41,
+    "seam_ratio": 1.14,
+    "render_psnr": 50.84,
+    "sampling_cost_s_euler50": 0.23,
+    "step": 20000,
+    "zf_view_cosine_mean_offdiag": 1.0,
+    "zf_view_l2_mean_offdiag": 0.003
+   }
+  },
+  "oa_overfit1_mv6": {
+   "steps": 20000,
+   "object": "same",
+   "metrics": {
+    "final_ema": 0.0025,
+    "native": 49.02,
+    "xatlas": 48.34,
+    "partial": 49.17,
+    "seam_ratio": 1.16,
+    "render_psnr": 50.97,
+    "sampling_cost_s_euler50": 0.22,
+    "step": 20000,
+    "zf_view_cosine_mean_offdiag": 1.0,
+    "zf_view_l2_mean_offdiag": 0.002
+   }
+  },
+  "oa80_smoke_single": {
+   "steps_frozen": 12000,
+   "early_stop": "EMA 10k->12k improvement 8.7% < 10%",
+   "proeval": {
+    "native": 16.27,
+    "xatlas": 16.02,
+    "partial": 17.38,
+    "seam_ratio": 1.94,
+    "consistency_db": 16.08,
+    "render_psnr": 16.54
+   },
+   "zf_knn5": 0.167,
+   "image_gate": {
+    "correct": 18.328,
+    "shuffled": 10.082,
+    "blank": 9.896,
+    "noise": 11.964,
+    "verdict": "PASS"
+   }
+  },
+  "oa80_randrot_single": {
+   "steps_frozen": 12000,
+   "proeval": {
+    "native": 17.89,
+    "xatlas": 17.25,
+    "partial": 18.88,
+    "seam_ratio": 1.88,
+    "consistency_db": 16.99,
+    "render_psnr": 18.42
+   },
+   "zf_knn5": 0.083,
+   "image_gate": {
+    "correct": 19.689,
+    "shuffled": 9.578,
+    "blank": 9.788,
+    "noise": 11.763,
+    "verdict": "PASS"
+   }
+  }
+ },
+ "metrics": "see arms",
+ "canonical_vs_randrot": "tie / no clear advantage at OA-80 scale; canonical Z_F category kNN 2x better (0.167 vs 0.083); reconstruction slightly favors randrot",
+ "decision": "GO_CANONICAL_SINGLE_IMAGE_BASELINE",
+ "report": "topotex_OA_study/results/oa_prototype_report.md"
+}
