@@ -125,7 +125,18 @@ class PackedLoss(torch.nn.Module):
             else c.topo_pe(gph, len(grp["Fp"]))
         )
         x = c.tokenizer(grp["Vp"], grp["Fp"], gph, pe)
-        img_tokens = c.image_encoder(imgs)
+        if getattr(c, "image_encoder_kind", "multiview") == "single":
+            # stochastic stored-view draw per group element (mirrors
+            # SurfaceConditioner.encode_faces training behavior)
+            idx = torch.randint(
+                imgs.shape[1], (imgs.shape[0],), device=imgs.device,
+                generator=g,
+            )
+            img_tokens = c.image_encoder(
+                imgs[torch.arange(imgs.shape[0], device=imgs.device), idx]
+            )
+        else:
+            img_tokens = c.image_encoder(imgs)
         outs, fo = [], 0
         for i, n in enumerate(grp["n_faces"]):
             outs.append(
