@@ -84,10 +84,21 @@ class SurfaceConditioner(nn.Module):
         pe = self.topo_pe(graph, len(Fc))
         x = self.tokenizer(V, Fc, graph, pe)
         if self.image_encoder_kind == "single":
-            # canonical single-view observation: first view only ([B,Nv,...]
-            # convention kept at the call sites; extra views are dataset
-            # augmentation, never model input)
-            tokens = self.image_encoder(mv_images[:, 0])
+            # canonical single-view observation ([B,Nv,...] convention kept
+            # at the call sites). Training draws a random stored view per
+            # step (stochastic observation diversity — the views differ by
+            # camera only, which is never an input); eval pins view 0 for
+            # determinism.
+            if self.training and mv_images.shape[1] > 1:
+                idx = torch.randint(
+                    mv_images.shape[1],
+                    (mv_images.shape[0],),
+                    device=mv_images.device,
+                )
+                view = mv_images[torch.arange(len(idx)), idx]
+            else:
+                view = mv_images[:, 0]
+            tokens = self.image_encoder(view)
         else:
             tokens = self.image_encoder(mv_images)
         x = self.cross(x.unsqueeze(0), tokens).squeeze(0)
