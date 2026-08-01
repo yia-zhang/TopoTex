@@ -38,11 +38,18 @@ class SurfaceConditioner(nn.Module):
         patch=8,
         resolution=256,
         texel_dim=None,
+        image_encoder="multiview",
     ):
         super().__init__()
         self.topo_pe = TopologyPE(pe_kind, pe_k)
         self.tokenizer = FaceTokenizer(dim=dim, pe_dim=pe_k)
-        self.image_encoder = MultiViewEncoder(dim, num_views, image_size)
+        self.image_encoder_kind = image_encoder
+        if image_encoder == "single":
+            from topotex.models.image_encoder import SingleImageEncoder
+
+            self.image_encoder = SingleImageEncoder(dim, image_size)
+        else:
+            self.image_encoder = MultiViewEncoder(dim, num_views, image_size)
         self.cross = FaceImageAttention(dim, heads, cross_depth)
         self.topo = TopologyTransformer(dim, heads, topo_depth)
         self.decoder = UVQueryAttention(
@@ -76,9 +83,14 @@ class SurfaceConditioner(nn.Module):
             graph = build_face_graph(V, Fc)
         pe = self.topo_pe(graph, len(Fc))
         x = self.tokenizer(V, Fc, graph, pe)
-        x = self.cross(x.unsqueeze(0), self.image_encoder(mv_images)).squeeze(
-            0
-        )
+        if self.image_encoder_kind == "single":
+            # canonical single-view observation: first view only ([B,Nv,...]
+            # convention kept at the call sites; extra views are dataset
+            # augmentation, never model input)
+            tokens = self.image_encoder(mv_images[:, 0])
+        else:
+            tokens = self.image_encoder(mv_images)
+        x = self.cross(x.unsqueeze(0), tokens).squeeze(0)
         x = self.topo(x, graph)
         return x, graph
 

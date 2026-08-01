@@ -27,6 +27,33 @@ class ViTBlock(nn.Module):
         return x + self.mlp(self.norm2(x))
 
 
+class SingleImageEncoder(nn.Module):
+    """Canonical single-image encoder (OA prototype): plain ViT over ONE
+    view. No view embedding, no multi-view joint attention, no camera or
+    projection encoding — image<->face correspondence is learned entirely
+    by the downstream face-image cross attention. From scratch (no
+    pretrained backbone), matching the MultiViewEncoder ablation regime."""
+
+    def __init__(self, dim=256, image_size=256, patch=16, depth=4, heads=8):
+        super().__init__()
+        self.grid = image_size // patch
+        self.patch_embed = nn.Conv2d(3, dim, patch, stride=patch)
+        self.pos = nn.Parameter(torch.zeros(1, self.grid * self.grid, dim))
+        nn.init.normal_(self.pos, std=0.02)
+        self.blocks = nn.ModuleList(
+            [ViTBlock(dim, heads) for _ in range(depth)]
+        )
+        self.norm = nn.LayerNorm(dim)
+
+    def forward(self, images):
+        """images [B,3,H,W] in [0,1] -> tokens [B, T, D]."""
+        x = self.patch_embed(images * 2 - 1)
+        x = x.flatten(2).transpose(1, 2) + self.pos  # [B,T,D]
+        for blk in self.blocks:
+            x = blk(x)
+        return self.norm(x)
+
+
 class MultiViewEncoder(nn.Module):
     def __init__(
         self, dim=256, num_views=6, image_size=256, patch=16, depth=4, heads=8

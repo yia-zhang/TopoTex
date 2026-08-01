@@ -58,6 +58,9 @@ def build_models(cfg: dict, device: str):
         resolution=int(cfg["resolution"]),
         patch=int(cfg["patch"]),
         texel_dim=texel_dim,
+        image_encoder=str(
+            cfg.get("image_encoder", sc_defaults.image_encoder)
+        ),
     ).to(device)
     dit = MiniDiT(
         resolution=int(cfg["resolution"]),

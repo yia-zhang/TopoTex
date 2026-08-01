@@ -54,6 +54,9 @@ class SurfaceConditionerConfig:
     topo_depth: int = 4  #: sparse topology-transformer blocks
     query_depth: int = 4  #: UV query cross-attention blocks
     image_size: int = 256  #: conditioning view resolution
+    #: image observation branch: "multiview" (six views, the baseline) or
+    #: "single" (one canonical reference view — OA prototype)
+    image_encoder: str = "multiview"
     uv_query_encoder: str = "factorized_dense"
     uv_texel_ratio: float = 0.25  #: texel width Dq = cond_dim * ratio
 
@@ -72,6 +75,11 @@ class SurfaceConditionerConfig:
                 f"unknown uv_query_encoder {self.uv_query_encoder!r} "
                 "(factorized_dense is the only implementation; earlier "
                 "checkpoints require their own frozen commit)"
+            )
+        if self.image_encoder not in ("multiview", "single"):
+            raise ValueError(
+                f"unknown image_encoder {self.image_encoder!r} "
+                "(multiview | single)"
             )
         if self.uv_texel_dim < MIN_TEXEL_DIM:
             raise ValueError(
