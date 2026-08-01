@@ -346,3 +346,28 @@ that are not conclusions.
   Validation reran green on a synthetic dataset (loader/train/resume/
   DDP/sample/evaluate through env roots).
 
+
+## fm_baseline_dim384_factorized: recurrent divergence, run terminated (2026-07-31)
+
+- **goal** validate the dim384 + factorized-query + FM recipe on the
+  4,590-object dataset (4,088 feasible train ids, 8xH800, 255,500 steps).
+- **result** healthy to step 83,800 (loss EMA 0.068-0.099) at lr 3e-4
+  cosine, diverged at ~84k (effective lr ~2.3e-4); recovery attempt
+  (commit 5136027: spike-rejection guard + --lr override) resumed from
+  the healthy 64k interim checkpoint at lr 1.5e-4 and diverged again at
+  ~79.9k (effective lr ~1.2e-4) via a ~800-step ramp the spike guard
+  cannot catch (fired once; EMA climbs with the ramp). Run terminated
+  per the pre-authorized stability branch; GPUs released to the 10K
+  dataset build.
+- **evidence** metrics_diverged_84k.jsonl, metrics_diverged2_79900.jsonl,
+  ckpt_diverged_step132k.pt, ckpt_diverged2_step82k.pt, divergence log
+  extracts — all in the run directory. Best healthy artifact:
+  ckpt_step64000_interim.pt (EMA 0.083, 25% of budget).
+- **verified before failure** unseen-object trend on the fixed 8-object
+  subset improved 28k->60k: cross-layout consistency 15.4->18.1 dB,
+  seam ratio 3.92->3.50; throughput 4.4-4.5 steps/s sustained, util 96%.
+- **conclusion** full analysis + frozen-recipe recommendations
+  (lr 1e-4 envelope, ramp-aware guard v2 with rollback, last-2 rolling
+  checkpoint retention — all [untested], user sign-off required) in
+  `experiments/baseline/stability_report.md` (commit b0bf7de). The
+  object-level baseline claim moves to the future 10K run.
